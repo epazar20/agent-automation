@@ -19,6 +19,7 @@ import { AgentType, AgentNode, NodeType, FlowConnection, McpType, ExecutionResul
 import { createDefaultAgentConfig, createDefaultMcpConfig } from '@/store/defaultConfigs';
 import { executeAgent } from '@/api/agents';
 import AIAgentNode from './AIAgentNode';
+import MCPAgentNode from './MCPAgentNode';
 import ResultNode from './ResultNode';
 import { Button } from "@/components/ui/button";
 import { PlayIcon, GearIcon, PlusIcon } from "@radix-ui/react-icons";
@@ -27,6 +28,7 @@ import 'reactflow/dist/style.css';
 
 const nodeTypes = {
   aiAgent: AIAgentNode,
+  mcpNode: MCPAgentNode,
   resultNode: ResultNode,
 };
 
@@ -156,7 +158,7 @@ function Flow() {
         // MCP Node oluştur
         const newNode: AgentNode = {
           id: `mcp-${Date.now()}`,
-          type: 'aiAgent', // Şimdilik mevcut node tiplerini kullanıyoruz
+          type: 'mcpNode', // Yeni eklenen mcpNode tipini kullan
           position,
           data: {
             type: 'webScraper', // Placeholder, ilerde MCP tipi olarak değiştirilecek

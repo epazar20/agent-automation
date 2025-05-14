@@ -7,12 +7,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useState, useEffect } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useDispatch } from 'react-redux';
 import { updateNode, removeNode } from '@/store/slices/flowSlice';
-import { AgentType, AgentConfig, YoutubeSummarizerConfig, WebSearcherConfig, ResearchAgentConfig, TextGeneratorConfig, McpType } from '@/store/types';
+import { AgentType, AgentConfig, YoutubeSummarizerConfig, WebSearcherConfig, ResearchAgentConfig, TextGeneratorConfig } from '@/store/types';
 import { toast } from 'sonner';
-import { defaultAgentConfigs, defaultMcpConfigs } from '@/store/defaultConfigs';
+import { defaultAgentConfigs } from '@/store/defaultConfigs';
 import { X } from 'lucide-react';
 
 type AIAgentNodeProps = {
@@ -27,10 +27,6 @@ export default function AIAgentNode({ id, data }: AIAgentNodeProps) {
   const dispatch = useDispatch();
   const [config, setConfig] = useState<AgentConfig>(data.config);
   const [isOpen, setIsOpen] = useState(false);
-  
-  // MCP node olup olmadığını kontrol et
-  const isMcpNode = id.startsWith('mcp-');
-  const mcpType = isMcpNode && (data.config as any).toolName?.split('_')[1] as McpType;
 
   useEffect(() => {
     if (data.config) {
@@ -46,20 +42,6 @@ export default function AIAgentNode({ id, data }: AIAgentNodeProps) {
   };
 
   const getNodeColor = () => {
-    // MCP node için renk seçimi
-    if (isMcpNode && mcpType) {
-      switch (mcpType) {
-        case 'supabase':
-          return 'bg-emerald-100 dark:bg-emerald-900';
-        case 'github':
-          return 'bg-violet-100 dark:bg-violet-900';
-        case 'firecrawl':
-          return 'bg-orange-100 dark:bg-orange-900';
-        default:
-          return 'bg-gray-100 dark:bg-gray-800';
-      }
-    }
-    
     // Normal agent node için standart renk seçimi
     switch (data.type) {
       case 'webScraper':
@@ -86,20 +68,6 @@ export default function AIAgentNode({ id, data }: AIAgentNodeProps) {
   };
 
   const getNodeIcon = () => {
-    // MCP node için ikon seçimi
-    if (isMcpNode && mcpType) {
-      switch (mcpType) {
-        case 'supabase':
-          return '🔷';
-        case 'github':
-          return '🐙';
-        case 'firecrawl':
-          return '🔥';
-        default:
-          return '?';
-      }
-    }
-    
     // Normal agent node için standart ikon seçimi
     switch (data.type) {
       case 'webScraper':
@@ -184,17 +152,8 @@ export default function AIAgentNode({ id, data }: AIAgentNodeProps) {
                 <span className="text-base">{getNodeIcon()}</span>
               </div>
               <div className="flex flex-col">
-                {isMcpNode && mcpType ? (
-                  <>
-                    <span className="text-sm font-medium">{defaultMcpConfigs[mcpType]?.name || 'MCP Agent'}</span>
-                    <span className="text-xs text-muted-foreground">{defaultMcpConfigs[mcpType]?.description || 'MCP Entegrasyonu'}</span>
-                  </>
-                ) : (
-                  <>
-                    <span className="text-sm font-medium">{defaultAgentConfigs[data.type].name}</span>
-                    <span className="text-xs text-muted-foreground">{defaultAgentConfigs[data.type].description}</span>
-                  </>
-                )}
+                <span className="text-sm font-medium">{defaultAgentConfigs[data.type].name}</span>
+                <span className="text-xs text-muted-foreground">{defaultAgentConfigs[data.type].description}</span>
               </div>
             </CardTitle>
           </CardHeader>
@@ -203,134 +162,13 @@ export default function AIAgentNode({ id, data }: AIAgentNodeProps) {
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
             <DialogTitle>
-              {isMcpNode && mcpType 
-                ? `${defaultMcpConfigs[mcpType].name} Yapılandırması` 
-                : `${defaultAgentConfigs[data.type].name} Yapılandırması`}
+              {`${defaultAgentConfigs[data.type].name} Yapılandırması`}
             </DialogTitle>
           </DialogHeader>
           
           <div className="space-y-4 py-4">
-            {/* MCP Ajanları için ayrı yapılandırma panelleri */}
-            {isMcpNode && mcpType === 'supabase' && (
-              <>
-                <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-md">
-                  <p className="text-sm text-blue-600 dark:text-blue-400">
-                    Supabase MCP entegrasyonu aşağıdaki özellikleri destekler:
-                  </p>
-                  <ul className="mt-2 space-y-1 list-disc list-inside text-sm text-blue-600 dark:text-blue-400">
-                    <li>Veritabanı işlemleri</li>
-                    <li>Kimlik doğrulama</li>
-                    <li>Depolama yönetimi</li>
-                    <li>Edge fonksiyonları</li>
-                  </ul>
-                </div>
-                
-                <div className="space-y-2">
-                  <Label>API URL</Label>
-                  <Input
-                    value={(config as any).apiUrl || ''}
-                    onChange={(e) => updateConfig<any>({ apiUrl: e.target.value })}
-                    placeholder="Supabase API URL"
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label>API Anahtarı</Label>
-                  <Input
-                    type="password"
-                    value={(config as any).apiKey || ''}
-                    onChange={(e) => updateConfig<any>({ apiKey: e.target.value })}
-                    placeholder="Supabase API Anahtarı"
-                  />
-                </div>
-
-                <div className="flex items-center space-x-2">
-                  <input
-                    type="checkbox"
-                    id="useAnon"
-                    checked={(config as any).useAnon || false}
-                    onChange={(e) => updateConfig<any>({ useAnon: e.target.checked })}
-                    className="rounded border-gray-300"
-                  />
-                  <Label htmlFor="useAnon">Anonim Anahtar Kullan</Label>
-                </div>
-              </>
-            )}
-
-            {isMcpNode && mcpType === 'github' && (
-              <>
-                <div className="p-3 bg-purple-50 dark:bg-purple-900/20 rounded-md">
-                  <p className="text-sm text-purple-600 dark:text-purple-400">
-                    GitHub MCP entegrasyonu aşağıdaki özellikleri destekler:
-                  </p>
-                  <ul className="mt-2 space-y-1 list-disc list-inside text-sm text-purple-600 dark:text-purple-400">
-                    <li>Depo yönetimi</li>
-                    <li>Issue ve PR işlemleri</li>
-                    <li>Kod arama ve güncelleme</li>
-                  </ul>
-                </div>
-                
-                <div className="space-y-2">
-                  <Label>GitHub Token</Label>
-                  <Input
-                    type="password"
-                    value={(config as any).token || ''}
-                    onChange={(e) => updateConfig<any>({ token: e.target.value })}
-                    placeholder="GitHub API Token"
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label>GitHub Kullanıcı Adı</Label>
-                  <Input
-                    value={(config as any).username || ''}
-                    onChange={(e) => updateConfig<any>({ username: e.target.value })}
-                    placeholder="GitHub Kullanıcı Adı"
-                  />
-                </div>
-              </>
-            )}
-
-            {isMcpNode && mcpType === 'firecrawl' && (
-              <>
-                <div className="p-3 bg-orange-50 dark:bg-orange-900/20 rounded-md">
-                  <p className="text-sm text-orange-600 dark:text-orange-400">
-                    Firecrawl MCP entegrasyonu aşağıdaki özellikleri destekler:
-                  </p>
-                  <ul className="mt-2 space-y-1 list-disc list-inside text-sm text-orange-600 dark:text-orange-400">
-                    <li>Web scraping ve içerik çıkarma</li>
-                    <li>Web içeriği arama</li>
-                    <li>Otomatik site tarama</li>
-                  </ul>
-                </div>
-                
-                <div className="space-y-2">
-                  <Label>API Anahtarı</Label>
-                  <Input
-                    type="password"
-                    value={(config as any).apiKey || ''}
-                    onChange={(e) => updateConfig<any>({ apiKey: e.target.value })}
-                    placeholder="Firecrawl API Anahtarı"
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label>Çıktı Formatı</Label>
-                  <select
-                    className="w-full p-2 rounded-md border border-input bg-background"
-                    value={(config as any).outputFormat || 'markdown'}
-                    onChange={(e) => updateConfig<any>({ outputFormat: e.target.value })}
-                  >
-                    <option value="markdown">Markdown</option>
-                    <option value="html">HTML</option>
-                    <option value="json">JSON</option>
-                  </select>
-                </div>
-              </>
-            )}
-
-            {/* Normal Agent'lar için mevcut yapılandırma panelleri */}
-            {!isMcpNode && data.type === 'youtubeSummarizer' && (
+            {/* YouTube Summarizer yapılandırması */}
+            {data.type === 'youtubeSummarizer' && (
               <>
                 <div className="space-y-2">
                   <Label>YouTube URL</Label>
@@ -389,6 +227,7 @@ export default function AIAgentNode({ id, data }: AIAgentNodeProps) {
               </>
             )}
             
+            {/* Web Searcher yapılandırması */}
             {data.type === 'webSearcher' && (
               <>
                 <div className="space-y-2">
@@ -450,6 +289,7 @@ export default function AIAgentNode({ id, data }: AIAgentNodeProps) {
               </>
             )}
 
+            {/* Research Agent yapılandırması */}
             {data.type === 'researchAgent' && (
               <>
                 <div className="space-y-2">

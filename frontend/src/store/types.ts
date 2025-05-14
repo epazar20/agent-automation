@@ -184,7 +184,7 @@ export type AgentConfig =
   | ResultConfig;
 
 // Node Types
-export type NodeType = 'aiAgent' | 'resultNode';
+export type NodeType = 'aiAgent' | 'resultNode' | 'mcpNode';
 
 // Agent Node
 export interface AgentNode {
