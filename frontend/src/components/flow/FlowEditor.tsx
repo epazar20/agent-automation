@@ -10,11 +10,12 @@ import ReactFlow, {
   Node,
   useReactFlow,
   ReactFlowProvider,
+  NodeChange,
 } from 'reactflow';
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '@/store';
 import { addNode, updateNodePosition, addEdge, removeNode, removeEdge, updateExecutionResult } from '@/store/slices/flowSlice';
-import { AgentType, AgentNode, NodeType, FlowConnection, McpType } from '@/store/types';
+import { AgentType, AgentNode, NodeType, FlowConnection, McpType, ExecutionResults, AgentConfig } from '@/store/types';
 import { createDefaultAgentConfig, createDefaultMcpConfig } from '@/store/defaultConfigs';
 import { executeAgent } from '@/api/agents';
 import AIAgentNode from './AIAgentNode';
@@ -30,7 +31,7 @@ const nodeTypes = {
 };
 
 // Edge stil fonksiyonu
-const getEdgeStyle = (edge: Edge, executionResults: any) => {
+const getEdgeStyle = (edge: Edge, executionResults: ExecutionResults) => {
   const sourceResult = executionResults[edge.source];
   
   if (!sourceResult) {
@@ -75,7 +76,7 @@ function Flow() {
   const { nodes, edges, executionResults } = useSelector((state: RootState) => state.flow);
   const { project } = useReactFlow();
 
-  const onNodesChange = useCallback((changes: any[]) => {
+  const onNodesChange = useCallback((changes: NodeChange[]) => {
     changes.forEach((change) => {
       if (change.type === 'position' && change.position) {
         dispatch(updateNodePosition({
@@ -91,9 +92,9 @@ function Flow() {
       if (!params.source || !params.target) return;
       
       // Result node'a sadece diğer node'lardan bağlantı yapılabilir
-      const targetNode = nodes.find(n => n.id === params.target);
+      const targetNode = nodes.find((n: Node) => n.id === params.target);
       if (targetNode?.type === 'resultNode') {
-        const sourceNode = nodes.find(n => n.id === params.source);
+        const sourceNode = nodes.find((n: Node) => n.id === params.source);
         if (sourceNode?.type === 'resultNode') {
           return; // Result node'dan result node'a bağlantı yapılamaz
         }
@@ -159,7 +160,7 @@ function Flow() {
           position,
           data: {
             type: 'webScraper', // Placeholder, ilerde MCP tipi olarak değiştirilecek
-            config: createDefaultMcpConfig(mcpType) as any, // Şimdilik mevcut AgentConfig tipini kullanıyoruz
+            config: createDefaultMcpConfig(mcpType) as unknown as AgentConfig,
           },
         };
 
@@ -178,7 +179,7 @@ function Flow() {
   const handleExecute = async () => {
     try {
       // Tüm agent node'ları bul (result node'lar hariç)
-      const agentNodes = nodes.filter(node => node.type !== 'resultNode');
+      const agentNodes = nodes.filter((node: Node) => node.type !== 'resultNode');
       
       // Node'ları sıralı çalıştırmak için bağlantıları takip et
       const executionOrder = getExecutionOrder(agentNodes, edges);
@@ -209,12 +210,12 @@ function Flow() {
 
           // Bu node'a bağlı result node'ları bul ve güncelle
           const connectedResults = edges
-            .filter(edge => edge.source === node.id)
-            .map(edge => nodes.find(n => n.id === edge.target))
-            .filter(n => n?.type === 'resultNode');
+            .filter((edge: Edge) => edge.source === node.id)
+            .map((edge: Edge) => nodes.find((n: Node) => n.id === edge.target))
+            .filter((n: Node | undefined) => n?.type === 'resultNode');
 
           // Her bağlı result node için sonucu güncelle
-          connectedResults.forEach(resultNode => {
+          connectedResults.forEach((resultNode: Node | undefined) => {
             if (resultNode) {
               dispatch(updateExecutionResult({
                 nodeId: resultNode.id,
@@ -271,7 +272,7 @@ function Flow() {
   };
 
   // Önceki node'ların çıktılarını alma fonksiyonu
-  const getPreviousNodeOutputs = (nodeId: string, edges: FlowConnection[], results: any) => {
+  const getPreviousNodeOutputs = (nodeId: string, edges: FlowConnection[], results: ExecutionResults) => {
     const inputs: any[] = [];
     
     // Bu node'a gelen bağlantıları bul
@@ -289,7 +290,7 @@ function Flow() {
   };
 
   // Edge'leri duruma göre güncelle
-  const styledEdges = edges.map(edge => ({
+  const styledEdges = edges.map((edge: Edge) => ({
     ...edge,
     style: getEdgeStyle(edge, executionResults),
     animated: executionResults[edge.source]?.status === 'running',
@@ -387,4 +388,4 @@ export default function FlowEditor() {
       <Flow />
     </ReactFlowProvider>
   );
-} 
+}

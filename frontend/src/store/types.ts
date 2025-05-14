@@ -212,28 +212,36 @@ export interface FlowConnection {
   };
 }
 
+// Execution Results
+export type ExecutionResults = {
+  [nodeId: string]: {
+    status: 'idle' | 'running' | 'completed' | 'error';
+    output?: any;
+    error?: string;
+    executionTime?: number;
+    tokenUsage?: {
+      prompt: number;
+      completion: number;
+      total: number;
+    };
+    resourceUsage?: {
+      memory: number;
+      cpu: number;
+      network: {
+        sent: number;
+        received: number;
+      };
+    };
+  };
+};
+
 // Akış Durumu
 export interface FlowState {
   nodes: AgentNode[];
   edges: FlowConnection[];
   selectedNodeId: string | null;
   isRunning: boolean;
-  executionResults: {
-    [nodeId: string]: {
-      status: 'idle' | 'running' | 'completed' | 'error';
-      output?: any;
-      error?: string;
-      executionTime?: number;
-      resourceUsage?: {
-        memory: number;
-        cpu: number;
-        network: {
-          sent: number;
-          received: number;
-        };
-      };
-    };
-  };
+  executionResults: ExecutionResults;
 }
 
 // Geçmiş

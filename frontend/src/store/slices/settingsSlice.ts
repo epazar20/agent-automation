@@ -18,6 +18,23 @@ const initialState: Settings = {
     anthropic: 100000,
     llama2: 4096,
   },
+  agentDefaults: {
+    webScraper: {},
+    webSearcher: {},
+    codeInterpreter: {},
+    dataAnalyst: {},
+    imageGenerator: {},
+    textGenerator: {},
+    translator: {},
+    youtubeSummarizer: {},
+    researchAgent: {},
+    result: {}
+  },
+  security: {
+    encryptApiKeys: true,
+    allowExternalRequests: true,
+    allowFileSystem: false
+  }
 };
 
 const settingsSlice = createSlice({
