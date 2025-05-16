@@ -1,0 +1,122 @@
+import React from 'react';
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { ModelConfig, LLMType, AgentType } from '@/store/types';
+import { defaultModelConfig } from '@/store/defaultConfigs';
+
+interface ModelConfigFormProps {
+  modelConfig: ModelConfig;
+  onChange: (updates: Partial<ModelConfig>) => void;
+  agentType?: AgentType;
+}
+
+export default function ModelConfigForm({ modelConfig, onChange, agentType }: ModelConfigFormProps) {
+  const handleModelTypeChange = (type: LLMType) => {
+    onChange({
+      ...defaultModelConfig[type],
+      type
+    });
+  };
+
+  const handleModelChange = (model: string) => {
+    onChange({
+      ...modelConfig,
+      model
+    });
+  };
+
+  const renderModelOptions = () => {
+    switch (modelConfig.type) {
+      case 'openai':
+        return (
+          <>
+            <option value="gpt-4">GPT-4</option>
+            <option value="gpt-4-turbo">GPT-4 Turbo</option>
+            <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
+          </>
+        );
+      case 'gemini':
+        return (
+          <>
+            <option value="gemini-pro">Gemini Pro</option>
+            <option value="gemini-ultra">Gemini Ultra</option>
+          </>
+        );
+      case 'anthropic':
+        return (
+          <>
+            <option value="claude-3-opus">Claude 3 Opus</option>
+            <option value="claude-3-sonnet">Claude 3 Sonnet</option>
+            <option value="claude-3-haiku">Claude 3 Haiku</option>
+          </>
+        );
+      case 'llama2':
+        return (
+          <>
+            <option value="llama-2-70b-chat">Llama 2 70B Chat</option>
+            <option value="llama-2-13b-chat">Llama 2 13B Chat</option>
+          </>
+        );
+      default:
+        return null;
+    }
+  };
+
+  // Check if this is the YouTube Summarizer
+  const isYoutubeSummarizer = agentType === 'youtubeSummarizer';
+
+  return (
+    <div className="space-y-4">
+      <div className="space-y-2">
+        <Label>Model</Label>
+        <div className="grid grid-cols-2 gap-2">
+          <select
+            className="p-2 rounded-md border border-input bg-background"
+            value={modelConfig.type}
+            onChange={(e) => handleModelTypeChange(e.target.value as LLMType)}
+          >
+            <option value="openai">OpenAI</option>
+            <option value="gemini">Gemini</option>
+            <option value="anthropic">Anthropic</option>
+            <option value="llama2">Llama</option>
+          </select>
+          
+          <select
+            className="p-2 rounded-md border border-input bg-background"
+            value={modelConfig.model}
+            onChange={(e) => handleModelChange(e.target.value)}
+          >
+            {renderModelOptions()}
+          </select>
+        </div>
+      </div>
+
+      {!isYoutubeSummarizer && (
+        <>
+          <div className="space-y-2">
+            <Label>Sıcaklık (Temperature)</Label>
+            <Input
+              type="number"
+              min="0"
+              max="1"
+              step="0.1"
+              value={modelConfig.temperature}
+              onChange={(e) => onChange({ temperature: parseFloat(e.target.value) })}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label>Sistem Prompt</Label>
+            <textarea
+              className="w-full p-2 rounded-md border border-input bg-background"
+              value={modelConfig.systemPrompt}
+              onChange={(e) => onChange({ systemPrompt: e.target.value })}
+              placeholder="Agent için sistem prompt girin"
+              rows={3}
+            />
+          </div>
+        </>
+      )}
+    </div>
+  );
+} 

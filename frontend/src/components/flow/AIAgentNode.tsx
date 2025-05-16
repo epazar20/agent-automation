@@ -10,10 +10,24 @@ import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useDispatch } from 'react-redux';
 import { updateNode, removeNode } from '@/store/slices/flowSlice';
-import { AgentType, AgentConfig, YoutubeSummarizerConfig, WebSearcherConfig, ResearchAgentConfig, TextGeneratorConfig } from '@/store/types';
+import { 
+  AgentType, 
+  AgentConfig, 
+  YoutubeSummarizerConfig, 
+  WebSearcherConfig, 
+  ResearchAgentConfig, 
+  WebScraperConfig,
+  CodeInterpreterConfig,
+  DataAnalystConfig,
+  ImageGeneratorConfig,
+  TextGeneratorConfig,
+  TranslatorConfig,
+  ModelConfig
+} from '@/store/types';
 import { toast } from 'sonner';
-import { defaultAgentConfigs } from '@/store/defaultConfigs';
+import { defaultAgentConfigs, createDefaultAgentConfig } from '@/store/defaultConfigs';
 import { X } from 'lucide-react';
+import ModelConfigForm from './ModelConfigForm';
 
 type AIAgentNodeProps = {
   id: string;
@@ -39,6 +53,17 @@ export default function AIAgentNode({ id, data }: AIAgentNodeProps) {
       ...prevConfig,
       ...updates,
     }) as T);
+  };
+
+  const updateModelConfig = (updates: Partial<ModelConfig>) => {
+    const updatedConfig = {
+      ...config,
+      modelConfig: {
+        ...config.modelConfig,
+        ...updates,
+      }
+    };
+    setConfig(updatedConfig as AgentConfig);
   };
 
   const getNodeColor = () => {
@@ -167,6 +192,13 @@ export default function AIAgentNode({ id, data }: AIAgentNodeProps) {
           </DialogHeader>
           
           <div className="space-y-4 py-4">
+            {/* Model yapılandırması - tüm agent tipleri için ortak */}
+            <ModelConfigForm 
+              modelConfig={config.modelConfig} 
+              onChange={updateModelConfig}
+              agentType={data.type}
+            />
+
             {/* YouTube Summarizer yapılandırması */}
             {data.type === 'youtubeSummarizer' && (
               <>
@@ -367,6 +399,427 @@ export default function AIAgentNode({ id, data }: AIAgentNodeProps) {
                     className="rounded border-gray-300"
                   />
                   <Label htmlFor="includeSourceLinks">Kaynak Linklerini Ekle</Label>
+                </div>
+              </>
+            )}
+
+            {/* Web Scraper yapılandırması */}
+            {data.type === 'webScraper' && (
+              <>
+                <div className="space-y-2">
+                  <Label>JavaScript Desteği</Label>
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      id="javascript"
+                      checked={(config as WebScraperConfig).capabilities.javascript}
+                      onChange={(e) => updateConfig<WebScraperConfig>({
+                        capabilities: {
+                          ...(config as WebScraperConfig).capabilities,
+                          javascript: e.target.checked,
+                        },
+                      })}
+                      className="rounded border-gray-300"
+                    />
+                    <Label htmlFor="javascript">JavaScript Etkinleştir</Label>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Cookies Desteği</Label>
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      id="cookies"
+                      checked={(config as WebScraperConfig).capabilities.cookies}
+                      onChange={(e) => updateConfig<WebScraperConfig>({
+                        capabilities: {
+                          ...(config as WebScraperConfig).capabilities,
+                          cookies: e.target.checked,
+                        },
+                      })}
+                      className="rounded border-gray-300"
+                    />
+                    <Label htmlFor="cookies">Çerezleri Etkinleştir</Label>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Maksimum Derinlik</Label>
+                  <Input
+                    type="number"
+                    min="1"
+                    max="5"
+                    value={(config as WebScraperConfig).rules.maxDepth}
+                    onChange={(e) => updateConfig<WebScraperConfig>({
+                      rules: {
+                        ...(config as WebScraperConfig).rules,
+                        maxDepth: parseInt(e.target.value) || 2,
+                      },
+                    })}
+                    placeholder="Maksimum tarama derinliği"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Maksimum Sayfa Sayısı</Label>
+                  <Input
+                    type="number"
+                    min="1"
+                    max="50"
+                    value={(config as WebScraperConfig).rules.maxPages}
+                    onChange={(e) => updateConfig<WebScraperConfig>({
+                      rules: {
+                        ...(config as WebScraperConfig).rules,
+                        maxPages: parseInt(e.target.value) || 10,
+                      },
+                    })}
+                    placeholder="Maksimum sayfa sayısı"
+                  />
+                </div>
+              </>
+            )}
+
+            {/* Code Interpreter yapılandırması */}
+            {data.type === 'codeInterpreter' && (
+              <>
+                <div className="space-y-2">
+                  <Label>Runtime Seçenekleri</Label>
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      id="python"
+                      checked={(config as CodeInterpreterConfig).runtime.python}
+                      onChange={(e) => updateConfig<CodeInterpreterConfig>({
+                        runtime: {
+                          ...(config as CodeInterpreterConfig).runtime,
+                          python: e.target.checked,
+                        },
+                      })}
+                      className="rounded border-gray-300"
+                    />
+                    <Label htmlFor="python">Python</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      id="javascript"
+                      checked={(config as CodeInterpreterConfig).runtime.javascript}
+                      onChange={(e) => updateConfig<CodeInterpreterConfig>({
+                        runtime: {
+                          ...(config as CodeInterpreterConfig).runtime,
+                          javascript: e.target.checked,
+                        },
+                      })}
+                      className="rounded border-gray-300"
+                    />
+                    <Label htmlFor="javascript">JavaScript</Label>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Kütüphaneler</Label>
+                  <Input
+                    value={(config as CodeInterpreterConfig).libraries.join(', ')}
+                    onChange={(e) => updateConfig<CodeInterpreterConfig>({
+                      libraries: e.target.value.split(',').map(lib => lib.trim()).filter(Boolean),
+                    })}
+                    placeholder="Virgülle ayrılmış kütüphane listesi"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Bellek Limiti (MB)</Label>
+                  <Input
+                    type="number"
+                    min="256"
+                    max="4096"
+                    value={(config as CodeInterpreterConfig).memoryLimit}
+                    onChange={(e) => updateConfig<CodeInterpreterConfig>({
+                      memoryLimit: parseInt(e.target.value) || 1024,
+                    })}
+                    placeholder="MB cinsinden bellek limiti"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Zaman Aşımı (saniye)</Label>
+                  <Input
+                    type="number"
+                    min="10"
+                    max="300"
+                    value={(config as CodeInterpreterConfig).timeoutSeconds}
+                    onChange={(e) => updateConfig<CodeInterpreterConfig>({
+                      timeoutSeconds: parseInt(e.target.value) || 30,
+                    })}
+                    placeholder="Saniye cinsinden zaman aşımı"
+                  />
+                </div>
+              </>
+            )}
+
+            {/* Data Analyst yapılandırması */}
+            {data.type === 'dataAnalyst' && (
+              <>
+                <div className="space-y-2">
+                  <Label>Desteklenen Formatlar</Label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {['csv', 'json', 'excel', 'sql'].map(format => (
+                      <div key={format} className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          id={format}
+                          checked={(config as DataAnalystConfig).supportedFormats.includes(format as any)}
+                          onChange={(e) => {
+                            const currentFormats = [...(config as DataAnalystConfig).supportedFormats];
+                            if (e.target.checked) {
+                              if (!currentFormats.includes(format as any)) {
+                                currentFormats.push(format as any);
+                              }
+                            } else {
+                              const index = currentFormats.indexOf(format as any);
+                              if (index > -1) {
+                                currentFormats.splice(index, 1);
+                              }
+                            }
+                            updateConfig<DataAnalystConfig>({
+                              supportedFormats: currentFormats,
+                            });
+                          }}
+                          className="rounded border-gray-300"
+                        />
+                        <Label htmlFor={format}>{format.toUpperCase()}</Label>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Görselleştirme</Label>
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      id="visualization"
+                      checked={(config as DataAnalystConfig).visualization.enabled}
+                      onChange={(e) => updateConfig<DataAnalystConfig>({
+                        visualization: {
+                          ...(config as DataAnalystConfig).visualization,
+                          enabled: e.target.checked,
+                        },
+                      })}
+                      className="rounded border-gray-300"
+                    />
+                    <Label htmlFor="visualization">Görselleştirmeyi Etkinleştir</Label>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Görselleştirme Kütüphaneleri</Label>
+                  <div className="grid grid-cols-1 gap-2">
+                    {['matplotlib', 'plotly', 'seaborn'].map(lib => (
+                      <div key={lib} className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          id={lib}
+                          checked={(config as DataAnalystConfig).visualization.libraries.includes(lib as any)}
+                          onChange={(e) => {
+                            const currentLibs = [...(config as DataAnalystConfig).visualization.libraries];
+                            if (e.target.checked) {
+                              if (!currentLibs.includes(lib as any)) {
+                                currentLibs.push(lib as any);
+                              }
+                            } else {
+                              const index = currentLibs.indexOf(lib as any);
+                              if (index > -1) {
+                                currentLibs.splice(index, 1);
+                              }
+                            }
+                            updateConfig<DataAnalystConfig>({
+                              visualization: {
+                                ...(config as DataAnalystConfig).visualization,
+                                libraries: currentLibs,
+                              },
+                            });
+                          }}
+                          className="rounded border-gray-300"
+                        />
+                        <Label htmlFor={lib}>{lib}</Label>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id="caching"
+                    checked={(config as DataAnalystConfig).caching}
+                    onChange={(e) => updateConfig<DataAnalystConfig>({
+                      caching: e.target.checked,
+                    })}
+                    className="rounded border-gray-300"
+                  />
+                  <Label htmlFor="caching">Önbelleğe Alma</Label>
+                </div>
+              </>
+            )}
+
+            {/* Image Generator yapılandırması */}
+            {data.type === 'imageGenerator' && (
+              <>
+                <div className="space-y-2">
+                  <Label>Sağlayıcı</Label>
+                  <select
+                    className="w-full p-2 rounded-md border border-input bg-background"
+                    value={(config as ImageGeneratorConfig).provider}
+                    onChange={(e) => updateConfig<ImageGeneratorConfig>({ 
+                      provider: e.target.value as 'dalle' | 'stable-diffusion' | 'midjourney' 
+                    })}
+                  >
+                    <option value="dalle">DALL-E</option>
+                    <option value="stable-diffusion">Stable Diffusion</option>
+                    <option value="midjourney">Midjourney</option>
+                  </select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Çözünürlük</Label>
+                  <select
+                    className="w-full p-2 rounded-md border border-input bg-background"
+                    value={(config as ImageGeneratorConfig).resolution}
+                    onChange={(e) => updateConfig<ImageGeneratorConfig>({ resolution: e.target.value })}
+                  >
+                    <option value="256x256">256x256</option>
+                    <option value="512x512">512x512</option>
+                    <option value="1024x1024">1024x1024</option>
+                    <option value="1024x1792">1024x1792 (Dikey)</option>
+                    <option value="1792x1024">1792x1024 (Yatay)</option>
+                  </select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Stil</Label>
+                  <select
+                    className="w-full p-2 rounded-md border border-input bg-background"
+                    value={(config as ImageGeneratorConfig).style}
+                    onChange={(e) => updateConfig<ImageGeneratorConfig>({ style: e.target.value })}
+                  >
+                    <option value="natural">Doğal</option>
+                    <option value="vivid">Canlı</option>
+                    <option value="anime">Anime</option>
+                    <option value="photographic">Fotoğrafik</option>
+                    <option value="3d-render">3D Render</option>
+                  </select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Örnekleme Adımları</Label>
+                  <Input
+                    type="number"
+                    min="10"
+                    max="150"
+                    value={(config as ImageGeneratorConfig).samplingSteps}
+                    onChange={(e) => updateConfig<ImageGeneratorConfig>({ 
+                      samplingSteps: parseInt(e.target.value) || 20 
+                    })}
+                  />
+                </div>
+              </>
+            )}
+
+            {/* Text Generator yapılandırması */}
+            {data.type === 'textGenerator' && (
+              <>
+                <div className="space-y-2">
+                  <Label>Maksimum Uzunluk</Label>
+                  <Input
+                    type="number"
+                    min="100"
+                    max="10000"
+                    value={(config as TextGeneratorConfig).maxLength}
+                    onChange={(e) => updateConfig<TextGeneratorConfig>({ 
+                      maxLength: parseInt(e.target.value) || 2000 
+                    })}
+                    placeholder="Maksimum karakter sayısı"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Format</Label>
+                  <select
+                    className="w-full p-2 rounded-md border border-input bg-background"
+                    value={(config as TextGeneratorConfig).format}
+                    onChange={(e) => updateConfig<TextGeneratorConfig>({ 
+                      format: e.target.value as 'markdown' | 'html' | 'plain' 
+                    })}
+                  >
+                    <option value="markdown">Markdown</option>
+                    <option value="html">HTML</option>
+                    <option value="plain">Düz Metin</option>
+                  </select>
+                </div>
+              </>
+            )}
+
+            {/* Translator yapılandırması */}
+            {data.type === 'translator' && (
+              <>
+                <div className="space-y-2">
+                  <Label>Kaynak Dil</Label>
+                  <select
+                    className="w-full p-2 rounded-md border border-input bg-background"
+                    value={(config as TranslatorConfig).sourceLang}
+                    onChange={(e) => updateConfig<TranslatorConfig>({ sourceLang: e.target.value })}
+                  >
+                    <option value="auto">Otomatik Algıla</option>
+                    <option value="en">İngilizce</option>
+                    <option value="tr">Türkçe</option>
+                    <option value="de">Almanca</option>
+                    <option value="fr">Fransızca</option>
+                    <option value="es">İspanyolca</option>
+                  </select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Hedef Dil</Label>
+                  <select
+                    className="w-full p-2 rounded-md border border-input bg-background"
+                    value={(config as TranslatorConfig).targetLang}
+                    onChange={(e) => updateConfig<TranslatorConfig>({ targetLang: e.target.value })}
+                  >
+                    <option value="tr">Türkçe</option>
+                    <option value="en">İngilizce</option>
+                    <option value="de">Almanca</option>
+                    <option value="fr">Fransızca</option>
+                    <option value="es">İspanyolca</option>
+                  </select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Uzmanlık Alanı</Label>
+                  <select
+                    className="w-full p-2 rounded-md border border-input bg-background"
+                    value={(config as TranslatorConfig).specialization || 'general'}
+                    onChange={(e) => updateConfig<TranslatorConfig>({ 
+                      specialization: e.target.value as 'general' | 'technical' | 'legal' | 'medical' 
+                    })}
+                  >
+                    <option value="general">Genel</option>
+                    <option value="technical">Teknik</option>
+                    <option value="legal">Hukuki</option>
+                    <option value="medical">Tıbbi</option>
+                  </select>
+                </div>
+
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id="preserveFormatting"
+                    checked={(config as TranslatorConfig).preserveFormatting}
+                    onChange={(e) => updateConfig<TranslatorConfig>({ preserveFormatting: e.target.checked })}
+                    className="rounded border-gray-300"
+                  />
+                  <Label htmlFor="preserveFormatting">Formatlamayı Koru</Label>
                 </div>
               </>
             )}

@@ -1,6 +1,6 @@
 import { AgentType, AgentConfig, LLMType, ModelConfig, McpType, McpConfig } from './types';
 
-const defaultModelConfig: Record<LLMType, Partial<ModelConfig>> = {
+export const defaultModelConfig: Record<LLMType, Partial<ModelConfig>> = {
   openai: {
     type: 'openai',
     model: 'gpt-4',
