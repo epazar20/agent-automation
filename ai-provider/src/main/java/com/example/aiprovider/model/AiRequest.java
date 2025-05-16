@@ -1,9 +1,11 @@
 package com.example.aiprovider.model;
 
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 import jakarta.validation.constraints.NotBlank;
 
-@Data
+@Getter
+@Setter
 public class AiRequest {
     
     @NotBlank(message = "Prompt is required")
