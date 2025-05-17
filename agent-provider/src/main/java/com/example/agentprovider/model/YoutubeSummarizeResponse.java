@@ -21,6 +21,7 @@ public class YoutubeSummarizeResponse {
     
     private long processingTimeMs;
     
+    @Builder.Default
     private boolean success = true;
     
     private String errorMessage;

@@ -12,17 +12,20 @@ interface ModelConfigFormProps {
 
 export default function ModelConfigForm({ modelConfig, onChange, agentType }: ModelConfigFormProps) {
   const handleModelTypeChange = (type: LLMType) => {
-    onChange({
-      ...defaultModelConfig[type],
+    const defaultConfig = defaultModelConfig[type];
+    const newConfig = {
+      ...defaultConfig,
       type
-    });
+    } as ModelConfig;
+    onChange(newConfig);
   };
 
   const handleModelChange = (model: string) => {
-    onChange({
+    const newConfig = {
       ...modelConfig,
       model
-    });
+    } as ModelConfig;
+    onChange(newConfig);
   };
 
   const renderModelOptions = () => {
@@ -57,6 +60,13 @@ export default function ModelConfigForm({ modelConfig, onChange, agentType }: Mo
             <option value="llama-2-13b-chat">Llama 2 13B Chat</option>
           </>
         );
+      case 'huggingface':
+        return (
+          <>
+            <option value="deepseek/deepseek-v3-0324">Deepseek v3</option>
+            <option value="google/gemma-3-27b-it">Gemma 27B</option>
+          </>
+        );
       default:
         return null;
     }
@@ -79,6 +89,7 @@ export default function ModelConfigForm({ modelConfig, onChange, agentType }: Mo
             <option value="gemini">Gemini</option>
             <option value="anthropic">Anthropic</option>
             <option value="llama2">Llama</option>
+            <option value="huggingface">HuggingFace</option>
           </select>
           
           <select
@@ -101,7 +112,7 @@ export default function ModelConfigForm({ modelConfig, onChange, agentType }: Mo
               max="1"
               step="0.1"
               value={modelConfig.temperature}
-              onChange={(e) => onChange({ temperature: parseFloat(e.target.value) })}
+              onChange={(e) => onChange({ temperature: parseFloat(e.target.value) } as Partial<ModelConfig>)}
             />
           </div>
 
@@ -110,7 +121,7 @@ export default function ModelConfigForm({ modelConfig, onChange, agentType }: Mo
             <textarea
               className="w-full p-2 rounded-md border border-input bg-background"
               value={modelConfig.systemPrompt}
-              onChange={(e) => onChange({ systemPrompt: e.target.value })}
+              onChange={(e) => onChange({ systemPrompt: e.target.value } as Partial<ModelConfig>)}
               placeholder="Agent için sistem prompt girin"
               rows={3}
             />

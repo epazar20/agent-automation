@@ -205,56 +205,19 @@ export default function AIAgentNode({ id, data }: AIAgentNodeProps) {
                 <div className="space-y-2">
                   <Label>YouTube URL</Label>
                   <Input
-                    value={(config as YoutubeSummarizerConfig).youtubeUrl}
-                    onChange={(e) => updateConfig<YoutubeSummarizerConfig>({ youtubeUrl: e.target.value })}
+                    value={(config as YoutubeSummarizerConfig).url}
+                    onChange={(e) => updateConfig<YoutubeSummarizerConfig>({ url: e.target.value })}
                     placeholder="YouTube video URL'sini girin"
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Özelleştirilmiş Prompt</Label>
+                  <Label>Özel Prompt</Label>
                   <Textarea
-                    value={(config as YoutubeSummarizerConfig).customPrompt}
-                    onChange={(e) => updateConfig<YoutubeSummarizerConfig>({ customPrompt: e.target.value })}
-                    placeholder="Özel prompt girin"
+                    value={(config as YoutubeSummarizerConfig).specialPrompt}
+                    onChange={(e) => updateConfig<YoutubeSummarizerConfig>({ specialPrompt: e.target.value })}
+                    placeholder="Özel prompt girin (örn: Sen bir transkript özetleyicisin. Verilen metni özetleyeceksin)"
                   />
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Çıktı Formatı</Label>
-                  <select
-                    className="w-full p-2 rounded-md border border-input bg-background"
-                    value={(config as YoutubeSummarizerConfig).outputFormat}
-                    onChange={(e) => updateConfig<YoutubeSummarizerConfig>({ 
-                      outputFormat: e.target.value as 'text' | 'bullet' | 'chapters'
-                    })}
-                  >
-                    <option value="text">Düz Metin</option>
-                    <option value="bullet">Madde İşaretleri</option>
-                    <option value="chapters">Bölümler</option>
-                  </select>
-                </div>
-
-                <div className="flex items-center space-x-2">
-                  <input
-                    type="checkbox"
-                    id="includeThumbnail"
-                    checked={(config as YoutubeSummarizerConfig).includeThumbnail}
-                    onChange={(e) => updateConfig<YoutubeSummarizerConfig>({ includeThumbnail: e.target.checked })}
-                    className="rounded border-gray-300"
-                  />
-                  <Label htmlFor="includeThumbnail">Küçük Resim Ekle</Label>
-                </div>
-
-                <div className="flex items-center space-x-2">
-                  <input
-                    type="checkbox"
-                    id="includeTimestamps"
-                    checked={(config as YoutubeSummarizerConfig).includeTimestamps}
-                    onChange={(e) => updateConfig<YoutubeSummarizerConfig>({ includeTimestamps: e.target.checked })}
-                    className="rounded border-gray-300"
-                  />
-                  <Label htmlFor="includeTimestamps">Zaman Damgalarını Ekle</Label>
                 </div>
               </>
             )}

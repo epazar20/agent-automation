@@ -1,6 +1,14 @@
 import { AgentType, AgentConfig, LLMType, ModelConfig, McpType, McpConfig } from './types';
 
 export const defaultModelConfig: Record<LLMType, Partial<ModelConfig>> = {
+  huggingface: {
+    type: 'huggingface',
+    model: 'deepseek/deepseek-v3-0324',
+    temperature: 0.7,
+    maxTokens: 4096,
+    topP: 1,
+    systemPrompt: '',
+  },
   openai: {
     type: 'openai',
     model: 'gpt-4',
@@ -123,13 +131,16 @@ export const defaultAgentConfigs: Record<AgentType, Partial<AgentConfig>> = {
   youtubeSummarizer: {
     name: 'YouTube Summarizer',
     description: 'YouTube video içeriklerini özetleme ve analiz',
-    youtubeUrl: '',
-    customPrompt: 'Bu YouTube videosunun ana noktalarını özetle ve önemli detayları vurgula.',
-    outputFormat: 'text',
-    language: 'tr',
-    maxLength: 1000,
-    includeThumbnail: true,
-    includeTimestamps: true,
+    url: '',
+    specialPrompt: 'Sen bir transkript özetleyicisin. Verilen metni özetleyeceksin',
+    modelConfig: {
+      type: 'huggingface',
+      model: 'deepseek/deepseek-v3-0324',
+      temperature: 0.7,
+      maxTokens: 4096,
+      topP: 1,
+      systemPrompt: '',
+    },
   },
   result: {
     name: 'Sonuç Görüntüleyici',

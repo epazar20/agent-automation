@@ -14,7 +14,7 @@ import { defaultAgentConfigs } from '@/store/defaultConfigs';
 import { RootState } from '@/store';
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Switch } from "@/components/ui/switch";
-import { Loader2, X } from 'lucide-react';
+import { Loader2, X, Copy } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 
 type ResultNodeProps = {
@@ -28,8 +28,7 @@ type ResultNodeProps = {
 export default function ResultNode({ id, data }: ResultNodeProps) {
   const dispatch = useDispatch();
   const [config, setConfig] = useState<ResultConfig>(data.config);
-  const [isOpen, setIsOpen] = useState(false);
-  const [output, setOutput] = useState<string>('Henüz çıktı yok...');
+  const [jsonDialogOpen, setJsonDialogOpen] = useState(false);
 
   const executionResults = useSelector((state: RootState) => state.flow.executionResults);
   const edges = useSelector((state: RootState) => state.flow.edges);
@@ -40,38 +39,16 @@ export default function ResultNode({ id, data }: ResultNodeProps) {
     }
   }, [data.config]);
 
-  useEffect(() => {
-    // Bağlı olan önceki node'u bul
-    const sourceEdge = edges.find(edge => edge.target === id);
-    if (sourceEdge) {
-      const sourceResult = executionResults[sourceEdge.source];
-      if (sourceResult?.output) {
-        setOutput(JSON.stringify(sourceResult.output, null, 2));
-      }
-    }
-  }, [edges, executionResults, id]);
-
-  const handleSave = () => {
-    dispatch(updateNode({
-      id,
-      updates: {
-        data: {
-          ...data,
-          config,
-        },
-      },
-    }));
-    setIsOpen(false);
-    toast.success('Yapılandırma kaydedildi');
-  };
-
   // Bağlı olan kaynak node'un sonucunu al
   const sourceEdge = edges.find(edge => edge.target === id);
   const result = sourceEdge ? executionResults[sourceEdge.source] : null;
 
+  // JSON preview and dialog logic
+  const jsonString = result && typeof result.output !== 'undefined' ? JSON.stringify(result.output, null, 2) : '';
+  const jsonPreview = jsonString.slice(0, 200) + (jsonString.length > 200 ? '...' : '');
+
   const getStatusColor = () => {
     if (!result) return 'bg-gray-500';
-    
     switch (result.status) {
       case 'completed':
         return 'bg-green-500';
@@ -84,17 +61,24 @@ export default function ResultNode({ id, data }: ResultNodeProps) {
     }
   };
 
-  const formatOutput = (output: any) => {
-    if (typeof output === 'string') {
-      return output;
+  // Card click handler: only open dialog if result and completed
+  const handleCardClick = () => {
+    if (result?.status === 'completed' && jsonString) {
+      setJsonDialogOpen(true);
     }
-    if (typeof output === 'object') {
-      if (output.response) {
-        return output.response;
-      }
-      return JSON.stringify(output, null, 2);
-    }
-    return '';
+  };
+
+  const handleSave = () => {
+    dispatch(updateNode({
+      id,
+      updates: {
+        data: {
+          ...data,
+          config,
+        },
+      },
+    }));
+    toast.success('Yapılandırma kaydedildi');
   };
 
   return (
@@ -122,7 +106,11 @@ export default function ResultNode({ id, data }: ResultNodeProps) {
         </Button>
       </div>
       
-      <Card className="w-[300px] p-4 cursor-pointer [&.selected]:ring-2 [&.selected]:ring-primary [&.selected]:shadow-md [&.selected]:shadow-primary/25 [&.selected]:scale-105 transition-all duration-200">
+      <Card
+        className="w-[300px] p-4 cursor-pointer [&.selected]:ring-2 [&.selected]:ring-primary [&.selected]:shadow-md [&.selected]:shadow-primary/25 [&.selected]:scale-105 transition-all duration-200"
+        onClick={handleCardClick}
+        title={result?.status === 'completed' && jsonString ? 'Tıkla: Tam JSON' : ''}
+      >
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2">
@@ -134,48 +122,27 @@ export default function ResultNode({ id, data }: ResultNodeProps) {
             )}
           </div>
 
-          {result?.status === 'completed' && result.output && (
-            <>
-              <Dialog>
-                <DialogTrigger asChild>
-                  <Button variant="outline" className="w-full">
-                    Sonucu Görüntüle
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="max-w-3xl">
-                  <DialogHeader>
-                    <DialogTitle>Analiz Sonucu</DialogTitle>
-                  </DialogHeader>
-                  <ScrollArea className="h-[500px] w-full rounded-md border p-4">
-                    <div className="prose prose-sm dark:prose-invert max-w-none">
-                      <ReactMarkdown>
-                        {formatOutput(result.output)}
-                      </ReactMarkdown>
-                    </div>
-                  </ScrollArea>
-                </DialogContent>
-              </Dialog>
-
-              <div className="max-h-[150px] overflow-hidden rounded-md bg-muted p-3">
-                <div className="prose prose-sm dark:prose-invert max-w-none">
-                  <ReactMarkdown>
-                    {formatOutput(result.output).slice(0, 200) + 
-                     (formatOutput(result.output).length > 200 ? '...' : '')}
-                  </ReactMarkdown>
-                </div>
+          {/* Show JSON preview if result exists and is completed */}
+          {result?.status === 'completed' && jsonString && (
+            <div className="max-h-[150px] overflow-hidden rounded-md bg-muted p-3 cursor-pointer hover:bg-muted-foreground/10 transition">
+              <div className="prose prose-sm dark:prose-invert max-w-none">
+                <pre className="whitespace-pre-wrap break-all text-xs">{jsonPreview}</pre>
               </div>
-            </>
+              <div className="text-xs text-right text-muted-foreground">Tıkla: Tam JSON</div>
+            </div>
           )}
 
+          {/* Show error if result is error */}
           {result?.status === 'error' && (
             <div className="rounded-md bg-red-100 dark:bg-red-900/20 p-3">
               <p className="text-sm text-red-600 dark:text-red-400">
-                {result.error}
+                {result.error || 'Bir hata oluştu.'}
               </p>
             </div>
           )}
 
-          {!result && (
+          {/* Show info if no result yet or not completed */}
+          {(!result || (!jsonString && result.status !== 'error')) && (
             <div className="rounded-md bg-muted p-3">
               <p className="text-sm text-muted-foreground">
                 Henüz sonuç yok...
@@ -184,6 +151,19 @@ export default function ResultNode({ id, data }: ResultNodeProps) {
           )}
         </div>
       </Card>
+      {/* Dialog for full JSON */}
+      <Dialog open={jsonDialogOpen} onOpenChange={setJsonDialogOpen}>
+        <DialogContent className="max-w-4xl">
+          <DialogHeader>
+            <DialogTitle>JSON Sonuç (Tüm Detay)</DialogTitle>
+          </DialogHeader>
+          <ScrollArea className="h-[600px] w-full rounded-md border p-4">
+            <div className="prose prose-sm dark:prose-invert max-w-none">
+              <pre className="whitespace-pre-wrap break-all text-xs">{jsonString}</pre>
+            </div>
+          </ScrollArea>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 } 

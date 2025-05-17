@@ -15,7 +15,7 @@ export type AgentType =
 export type McpType = 'supabase' | 'github' | 'firecrawl';
 
 // LLM Model Tipleri
-export type LLMType = 'openai' | 'gemini' | 'anthropic' | 'llama2';
+export type LLMType = 'openai' | 'gemini' | 'anthropic' | 'llama2' | 'huggingface';
 
 // Temel Model Konfigürasyonları
 interface BaseModelConfig {
@@ -49,7 +49,12 @@ export interface LlamaConfig extends BaseModelConfig {
   repetitionPenalty: number;
 }
 
-export type ModelConfig = OpenAIConfig | GeminiConfig | AnthropicConfig | LlamaConfig;
+export interface HuggingFaceConfig extends BaseModelConfig {
+  type: 'huggingface';
+  model: 'deepseek/deepseek-v3-0324' | 'google/gemma-3-27b-it';
+}
+
+export type ModelConfig = OpenAIConfig | GeminiConfig | AnthropicConfig | LlamaConfig | HuggingFaceConfig;
 
 // Agent Konfigürasyonları
 interface BaseAgentConfig {
@@ -146,13 +151,14 @@ export interface TranslatorConfig extends BaseAgentConfig {
 }
 
 export interface YoutubeSummarizerConfig extends BaseAgentConfig {
-  youtubeUrl: string;
-  customPrompt: string;
-  outputFormat: 'text' | 'bullet' | 'chapters';
-  language: string;
-  maxLength?: number;
-  includeThumbnail: boolean;
-  includeTimestamps: boolean;
+  url: string;
+  specialPrompt: string;
+  videoId?: string;
+  summaryContent?: string;
+  model?: string;
+  processingTimeMs?: number;
+  success?: boolean;
+  errorMessage?: string | null;
 }
 
 export interface ResearchAgentConfig extends BaseAgentConfig {
