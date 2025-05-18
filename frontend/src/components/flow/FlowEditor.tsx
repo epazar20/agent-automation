@@ -180,44 +180,77 @@ function Flow() {
 
   const handleExecute = async () => {
     try {
-      // Tüm agent node'ları bul (result node'lar hariç)
+      // Find all agent nodes (excluding result nodes)
       const agentNodes = nodes.filter((node: Node) => node.type !== 'resultNode');
       
-      // Node'ları sıralı çalıştırmak için bağlantıları takip et
+      // Get execution order by following connections
       const executionOrder = getExecutionOrder(agentNodes, edges);
       
+      // Create a map to store results
+      const resultMap = new Map();
+      
       for (const node of executionOrder) {
-        // Node'un durumunu 'running' olarak güncelle
+        // Update node status to 'running'
         dispatch(updateExecutionResult({
           nodeId: node.id,
           status: 'running',
         }));
 
         try {
-          // Önceki node'ların çıktılarını al
-          const inputs = getPreviousNodeOutputs(node.id, edges, executionResults);
+          // Get outputs from previous nodes using the result map
+          const inputs = [];
+          const incomingEdges = edges.filter(edge => edge.target === node.id);
           
-          // Node'u çalıştır
-          const result = await executeAgent(node.data.type, {
-            ...node.data.config,
-            previousOutputs: inputs, // Önceki çıktıları config'e ekle
+          for (const edge of incomingEdges) {
+            const sourceResult = resultMap.get(edge.source);
+            if (sourceResult?.status === 'completed' && sourceResult.output) {
+              inputs.push(sourceResult.output);
+            }
+          }
+          
+          // Prepare configuration with content from previous nodes
+          let configToSend = { ...node.data.config } as any;
+          
+          // Get content from previous node's response
+          if (inputs.length > 0) {
+            const previousResponse = inputs[0];
+            let content;
+            
+            if (previousResponse?.content) {
+              // Handle standard content
+              content = previousResponse.content;
+            } else {
+              // Fallback to entire response if no specific content field
+              content = previousResponse;
+            }
+            
+            // Set the content in config
+            configToSend.content = typeof content === 'object' ? JSON.stringify(content) : content;
+          }
+
+          // Execute the node
+          const result = await executeAgent(node.data.type, configToSend);
+
+          // Store the result in our map
+          resultMap.set(node.id, {
+            status: 'completed',
+            output: result
           });
 
-          // Başarılı sonucu kaydet
+          // Update Redux state
           dispatch(updateExecutionResult({
             nodeId: node.id,
             status: 'completed',
             output: result,
           }));
 
-          // Bu node'a bağlı result node'ları bul ve güncelle
+          // Update connected result nodes
           const connectedResults = edges
             .filter((edge: Edge) => edge.source === node.id)
             .map((edge: Edge) => nodes.find((n: Node) => n.id === edge.target))
             .filter((n: Node | undefined) => n?.type === 'resultNode');
 
-          // Her bağlı result node için sonucu güncelle
-          connectedResults.forEach((resultNode: Node | undefined) => {
+          for (const resultNode of connectedResults) {
             if (resultNode) {
               dispatch(updateExecutionResult({
                 nodeId: resultNode.id,
@@ -225,23 +258,29 @@ function Flow() {
                 output: result,
               }));
             }
-          });
+          }
+
         } catch (error) {
-          // Hata durumunu kaydet
+          console.error(`Error executing node ${node.id}:`, error);
+          
+          // Store error in our map
+          resultMap.set(node.id, {
+            status: 'error',
+            error: error instanceof Error ? error.message : 'An error occurred'
+          });
+          
           dispatch(updateExecutionResult({
             nodeId: node.id,
             status: 'error',
-            error: error instanceof Error ? error.message : 'Bilinmeyen hata',
+            error: error instanceof Error ? error.message : 'An error occurred',
           }));
-          
-          toast.error(`${node.data.type} çalıştırılırken hata: ${error instanceof Error ? error.message : 'Bilinmeyen hata'}`);
-          break; // Hata durumunda sıralı çalıştırmayı durdur
         }
       }
 
       toast.success('İşlem tamamlandı');
     } catch (error) {
-      toast.error('Akış çalıştırılırken bir hata oluştu');
+      console.error('Error in workflow execution:', error);
+      toast.error('Workflow execution failed');
     }
   };
 
@@ -271,24 +310,6 @@ function Flow() {
     // Tüm node'ları ziyaret et
     nodes.forEach(node => visit(node));
     return order;
-  };
-
-  // Önceki node'ların çıktılarını alma fonksiyonu
-  const getPreviousNodeOutputs = (nodeId: string, edges: FlowConnection[], results: ExecutionResults) => {
-    const inputs: any[] = [];
-    
-    // Bu node'a gelen bağlantıları bul
-    const incomingEdges = edges.filter(edge => edge.target === nodeId);
-    
-    // Her bağlantının kaynağındaki sonucu al
-    incomingEdges.forEach(edge => {
-      const sourceResult = results[edge.source];
-      if (sourceResult?.status === 'completed' && sourceResult.output) {
-        inputs.push(sourceResult.output);
-      }
-    });
-
-    return inputs;
   };
 
   // Edge'leri duruma göre güncelle

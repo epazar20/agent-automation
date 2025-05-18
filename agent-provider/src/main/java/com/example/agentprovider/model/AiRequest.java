@@ -10,7 +10,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class AiRequest {
-    private String prompt;
+    private String content;
     private String specialPrompt;
     private String model;
     private int maxTokens;

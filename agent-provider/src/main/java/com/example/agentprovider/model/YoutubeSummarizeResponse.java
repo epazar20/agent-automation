@@ -15,7 +15,7 @@ public class YoutubeSummarizeResponse {
     
     private String videoId;
     
-    private String summaryContent;
+    private String content;
     
     private String model;
     

@@ -73,7 +73,7 @@ public class DefaultAiService implements AiService {
                     break;
             }
             
-            response.setResponse(aiResponse);
+            response.setContent(aiResponse);
             response.setSuccess(true);
         } catch (Exception e) {
             response.setSuccess(false);

@@ -61,36 +61,21 @@ interface BaseAgentConfig {
   name: string;
   description: string;
   modelConfig: ModelConfig;
+  content?: string;
+  specialPrompt?: string;
 }
 
 export interface WebScraperConfig extends BaseAgentConfig {
-  capabilities: {
-    javascript: boolean;
-    cookies: boolean;
-    headers: Record<string, string>;
-    proxy?: string;
-  };
   rules: {
-    allowedDomains?: string[];
-    blockedDomains?: string[];
     maxDepth: number;
     maxPages: number;
   };
 }
 
 export interface WebSearcherConfig extends BaseAgentConfig {
-  searchEngines: ('google' | 'bing' | 'duckduckgo')[];
-  searchQuery: string;
   maxResults: number;
-  apiKeys: {
-    google?: string;
-    bing?: string;
-  };
   filters: {
-    region?: string;
-    language?: string;
-    timeRange?: 'day' | 'week' | 'month' | 'year';
-    safeSearch: boolean;
+    language: string;
   };
 }
 
@@ -143,22 +128,11 @@ export interface TextGeneratorConfig extends BaseAgentConfig {
 }
 
 export interface TranslatorConfig extends BaseAgentConfig {
-  sourceLang: string;
   targetLang: string;
-  preserveFormatting: boolean;
-  glossary?: Record<string, string>;
-  specialization?: 'general' | 'technical' | 'legal' | 'medical';
 }
 
 export interface YoutubeSummarizerConfig extends BaseAgentConfig {
   url: string;
-  specialPrompt: string;
-  videoId?: string;
-  summaryContent?: string;
-  model?: string;
-  processingTimeMs?: number;
-  success?: boolean;
-  errorMessage?: string | null;
 }
 
 export interface ResearchAgentConfig extends BaseAgentConfig {

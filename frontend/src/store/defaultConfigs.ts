@@ -51,13 +51,6 @@ export const defaultAgentConfigs: Record<AgentType, Partial<AgentConfig>> = {
   webScraper: {
     name: 'Web Scraper',
     description: 'Web sayfalarından veri çıkarma ve analiz etme',
-    capabilities: {
-      javascript: true,
-      cookies: true,
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; AIAgent/1.0)',
-      },
-    },
     rules: {
       maxDepth: 2,
       maxPages: 10,
@@ -66,12 +59,8 @@ export const defaultAgentConfigs: Record<AgentType, Partial<AgentConfig>> = {
   webSearcher: {
     name: 'Web Searcher',
     description: 'İnternet üzerinde arama ve bilgi toplama',
-    searchEngines: ['google', 'bing'],
-    searchQuery: '',
     maxResults: 4,
     filters: {
-      safeSearch: true,
-      timeRange: 'month',
       language: 'tr',
     },
   },
@@ -123,10 +112,15 @@ export const defaultAgentConfigs: Record<AgentType, Partial<AgentConfig>> = {
   translator: {
     name: 'Translator',
     description: 'Çoklu dil çeviri asistanı',
-    sourceLang: 'auto',
     targetLang: 'tr',
-    preserveFormatting: true,
-    specialization: 'general',
+    modelConfig: {
+      type: 'huggingface',
+      model: 'deepseek/deepseek-v3-0324',
+      temperature: 0.7,
+      maxTokens: 4096,
+      topP: 1,
+      systemPrompt: 'Dil bilgisi ve anlam açısından kontrol edicisin sorun varsa ancak düzeltmelisin',
+    },
   },
   youtubeSummarizer: {
     name: 'YouTube Summarizer',

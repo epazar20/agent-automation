@@ -8,8 +8,8 @@ import jakarta.validation.constraints.NotBlank;
 @Setter
 public class AiRequest {
     
-    @NotBlank(message = "Prompt is required")
-    private String prompt;
+    @NotBlank(message = "Content is required")
+    private String content;
     
     private String specialPrompt;
     

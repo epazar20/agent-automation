@@ -21,7 +21,7 @@ public class OpenAiClient extends BaseClient implements AiClient {
                 "max_tokens": %d,
                 "temperature": %f
             }
-            """, request.getPrompt(), request.getMaxTokens(), request.getTemperature());
+            """, request.getContent(), request.getMaxTokens(), request.getTemperature());
             
         String jsonResponse = sendRequest(API_URL, apiKey, requestBody);
         

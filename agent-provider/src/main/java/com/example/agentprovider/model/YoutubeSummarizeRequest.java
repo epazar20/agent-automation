@@ -11,7 +11,7 @@ public class YoutubeSummarizeRequest {
     @NotBlank(message = "YouTube URL is required")
     private String url; // YouTube URL
     
-    private String prompt = "";
+    private String content = "";
     
     private String specialPrompt = "Sen bir transkript özetleyicisin. Verilen metni özetleyeceksin.";
     

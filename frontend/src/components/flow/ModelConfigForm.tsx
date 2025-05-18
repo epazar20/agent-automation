@@ -11,11 +11,19 @@ interface ModelConfigFormProps {
 }
 
 export default function ModelConfigForm({ modelConfig, onChange, agentType }: ModelConfigFormProps) {
+  React.useEffect(() => {
+    // Set default model type and model on component mount
+    if (modelConfig.type !== 'huggingface' || modelConfig.model !== 'deepseek/deepseek-v3-0324') {
+      handleModelTypeChange('huggingface');
+    }
+  }, []);
+
   const handleModelTypeChange = (type: LLMType) => {
     const defaultConfig = defaultModelConfig[type];
     const newConfig = {
       ...defaultConfig,
-      type
+      type,
+      model: type === 'huggingface' ? 'deepseek/deepseek-v3-0324' : defaultConfig.model
     } as ModelConfig;
     onChange(newConfig);
   };
@@ -72,12 +80,20 @@ export default function ModelConfigForm({ modelConfig, onChange, agentType }: Mo
     }
   };
 
-  // Check if this is the YouTube Summarizer
+  // Check if this is the YouTube Summarizer or Translator
   const isYoutubeSummarizer = agentType === 'youtubeSummarizer';
+  const isTranslator = agentType === 'translator';
+
+  const getDefaultSystemPrompt = () => {
+    if (isTranslator) {
+      return 'Dil bilgisi ve anlam açısından kontrol edicisin sorun varsa ancak düzeltmelisin';
+    }
+    return 'Sen bir transkript özetleyicisin. Verilen metni özetleyeceksin';
+  };
 
   return (
-    <div className="space-y-4">
-      <div className="space-y-2">
+    <div className="space-y-2">
+      <div className="space-y-1">
         <Label>Model</Label>
         <div className="grid grid-cols-2 gap-2">
           <select
@@ -85,11 +101,11 @@ export default function ModelConfigForm({ modelConfig, onChange, agentType }: Mo
             value={modelConfig.type}
             onChange={(e) => handleModelTypeChange(e.target.value as LLMType)}
           >
+            <option value="huggingface">HuggingFace</option>
             <option value="openai">OpenAI</option>
             <option value="gemini">Gemini</option>
             <option value="anthropic">Anthropic</option>
             <option value="llama2">Llama</option>
-            <option value="huggingface">HuggingFace</option>
           </select>
           
           <select
@@ -104,7 +120,7 @@ export default function ModelConfigForm({ modelConfig, onChange, agentType }: Mo
 
       {!isYoutubeSummarizer && (
         <>
-          <div className="space-y-2">
+          <div className="space-y-1">
             <Label>Sıcaklık (Temperature)</Label>
             <Input
               type="number"
@@ -116,14 +132,14 @@ export default function ModelConfigForm({ modelConfig, onChange, agentType }: Mo
             />
           </div>
 
-          <div className="space-y-2">
+          <div className="space-y-1">
             <Label>Sistem Prompt</Label>
             <textarea
               className="w-full p-2 rounded-md border border-input bg-background"
-              value={modelConfig.systemPrompt}
+              value={modelConfig.systemPrompt || getDefaultSystemPrompt()}
               onChange={(e) => onChange({ systemPrompt: e.target.value } as Partial<ModelConfig>)}
-              placeholder="Agent için sistem prompt girin"
-              rows={3}
+              placeholder={getDefaultSystemPrompt()}
+              rows={2}
             />
           </div>
         </>

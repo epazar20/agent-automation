@@ -30,9 +30,9 @@ public class RequestProcessor {
         // Create a deep copy of the request to avoid modifying the original
         AiRequest sanitizedRequest = new AiRequest();
         
-        // Sanitize the prompt text which may contain JSON special characters
-        if (request.getPrompt() != null) {
-            sanitizedRequest.setPrompt(request.getPrompt());
+        // Sanitize the content text which may contain JSON special characters
+        if (request.getContent() != null) {
+            sanitizedRequest.setContent(request.getContent());
         }
         
         // Sanitize the special prompt text
@@ -72,7 +72,7 @@ public class RequestProcessor {
         // Add user message with the prompt
         ObjectNode userMessage = objectMapper.createObjectNode();
         userMessage.put("role", "user");
-        userMessage.put("content", request.getPrompt());
+        userMessage.put("content", request.getContent());
         messages.add(userMessage);
         
         // Set the messages and other parameters

@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { useDispatch } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import { updateNode, removeNode } from '@/store/slices/flowSlice';
 import { 
   AgentType, 
@@ -28,6 +28,7 @@ import { toast } from 'sonner';
 import { defaultAgentConfigs, createDefaultAgentConfig } from '@/store/defaultConfigs';
 import { X } from 'lucide-react';
 import ModelConfigForm from './ModelConfigForm';
+import { RootState } from '@/store';
 
 type AIAgentNodeProps = {
   id: string;
@@ -41,6 +42,23 @@ export default function AIAgentNode({ id, data }: AIAgentNodeProps) {
   const dispatch = useDispatch();
   const [config, setConfig] = useState<AgentConfig>(data.config);
   const [isOpen, setIsOpen] = useState(false);
+
+  // Get edges and executionResults from redux
+  const edges = useSelector((state: RootState) => state.flow.edges);
+  const executionResults = useSelector((state: RootState) => state.flow.executionResults);
+
+  // Find previous node's output content if available
+  useEffect(() => {
+    if (data.type !== 'youtubeSummarizer') {
+      const sourceEdge = edges.find(edge => edge.target === id);
+      if (sourceEdge) {
+        const prevResult = executionResults[sourceEdge.source];
+        if (prevResult && prevResult.output && prevResult.output.content) {
+          setConfig(prev => ({ ...prev, content: prevResult.output.content }));
+        }
+      }
+    }
+  }, [edges, executionResults, id, data.type]);
 
   useEffect(() => {
     if (data.config) {
@@ -191,13 +209,29 @@ export default function AIAgentNode({ id, data }: AIAgentNodeProps) {
             </DialogTitle>
           </DialogHeader>
           
-          <div className="space-y-4 py-4">
+          <div className="space-y-2 py-2">
             {/* Model yapılandırması - tüm agent tipleri için ortak */}
-            <ModelConfigForm 
-              modelConfig={config.modelConfig} 
-              onChange={updateModelConfig}
-              agentType={data.type}
-            />
+            {data.type !== 'webSearcher' && (
+              <ModelConfigForm 
+                modelConfig={config.modelConfig} 
+                onChange={updateModelConfig}
+                agentType={data.type}
+              />
+            )}
+
+            {/* Content field for all except youtubeSummarizer */}
+            {data.type !== 'youtubeSummarizer' && (
+              <div className="space-y-1">
+                <Label>İçerik (Content)</Label>
+                <textarea
+                  className="w-full p-2 rounded-md border border-input bg-background"
+                  value={(config as any).content || ''}
+                  onChange={e => setConfig(prev => ({ ...prev, content: e.target.value }))}
+                  placeholder="İçerik girin veya önceki node'dan otomatik alınır"
+                  rows={3}
+                />
+              </div>
+            )}
 
             {/* YouTube Summarizer yapılandırması */}
             {data.type === 'youtubeSummarizer' && (
@@ -225,14 +259,6 @@ export default function AIAgentNode({ id, data }: AIAgentNodeProps) {
             {/* Web Searcher yapılandırması */}
             {data.type === 'webSearcher' && (
               <>
-                <div className="space-y-2">
-                  <Label>Arama Sorgusu</Label>
-                  <Input
-                    value={(config as WebSearcherConfig).searchQuery}
-                    onChange={(e) => updateConfig<WebSearcherConfig>({ searchQuery: e.target.value })}
-                    placeholder="Aramak istediğiniz sorguyu girin"
-                  />
-                </div>
 
                 <div className="space-y-2">
                   <Label>Sonuç Sayısı</Label>
@@ -245,7 +271,6 @@ export default function AIAgentNode({ id, data }: AIAgentNodeProps) {
                     placeholder="Kaç sonuç gösterilsin?"
                   />
                 </div>
-
                 <div className="space-y-2">
                   <Label>Dil</Label>
                   <select
@@ -258,28 +283,12 @@ export default function AIAgentNode({ id, data }: AIAgentNodeProps) {
                       },
                     })}
                   >
-                    <option value="en">English</option>
-                    <option value="tr">Türkçe</option>
-                    <option value="de">Deutsch</option>
-                    <option value="fr">Français</option>
-                    <option value="es">Español</option>
+                    <option value="en-US">English</option>
+                    <option value="tr-TR">Türkçe</option>
+                    <option value="de-DE">Deutsch</option>
+                    <option value="fr-FR">Français</option>
+                    <option value="es-ES">Español</option>
                   </select>
-                </div>
-
-                <div className="flex items-center space-x-2">
-                  <input
-                    type="checkbox"
-                    id="safeSearch"
-                    checked={(config as WebSearcherConfig).filters.safeSearch}
-                    onChange={(e) => updateConfig<WebSearcherConfig>({
-                      filters: {
-                        ...(config as WebSearcherConfig).filters,
-                        safeSearch: e.target.checked,
-                      },
-                    })}
-                    className="rounded border-gray-300"
-                  />
-                  <Label htmlFor="safeSearch">Güvenli Arama</Label>
                 </div>
               </>
             )}
@@ -370,54 +379,16 @@ export default function AIAgentNode({ id, data }: AIAgentNodeProps) {
             {data.type === 'webScraper' && (
               <>
                 <div className="space-y-2">
-                  <Label>JavaScript Desteği</Label>
-                  <div className="flex items-center space-x-2">
-                    <input
-                      type="checkbox"
-                      id="javascript"
-                      checked={(config as WebScraperConfig).capabilities.javascript}
-                      onChange={(e) => updateConfig<WebScraperConfig>({
-                        capabilities: {
-                          ...(config as WebScraperConfig).capabilities,
-                          javascript: e.target.checked,
-                        },
-                      })}
-                      className="rounded border-gray-300"
-                    />
-                    <Label htmlFor="javascript">JavaScript Etkinleştir</Label>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Cookies Desteği</Label>
-                  <div className="flex items-center space-x-2">
-                    <input
-                      type="checkbox"
-                      id="cookies"
-                      checked={(config as WebScraperConfig).capabilities.cookies}
-                      onChange={(e) => updateConfig<WebScraperConfig>({
-                        capabilities: {
-                          ...(config as WebScraperConfig).capabilities,
-                          cookies: e.target.checked,
-                        },
-                      })}
-                      className="rounded border-gray-300"
-                    />
-                    <Label htmlFor="cookies">Çerezleri Etkinleştir</Label>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
                   <Label>Maksimum Derinlik</Label>
                   <Input
                     type="number"
-                    min="1"
+                    min="0"
                     max="5"
-                    value={(config as WebScraperConfig).rules.maxDepth}
+                    value={(config as WebScraperConfig).rules.maxDepth ?? 0}
                     onChange={(e) => updateConfig<WebScraperConfig>({
                       rules: {
                         ...(config as WebScraperConfig).rules,
-                        maxDepth: parseInt(e.target.value) || 2,
+                        maxDepth: isNaN(parseInt(e.target.value)) ? 0 : parseInt(e.target.value),
                       },
                     })}
                     placeholder="Maksimum tarama derinliği"
@@ -430,11 +401,11 @@ export default function AIAgentNode({ id, data }: AIAgentNodeProps) {
                     type="number"
                     min="1"
                     max="50"
-                    value={(config as WebScraperConfig).rules.maxPages}
+                    value={(config as WebScraperConfig).rules.maxPages ?? 1}
                     onChange={(e) => updateConfig<WebScraperConfig>({
                       rules: {
                         ...(config as WebScraperConfig).rules,
-                        maxPages: parseInt(e.target.value) || 10,
+                        maxPages: isNaN(parseInt(e.target.value)) ? 1 : parseInt(e.target.value),
                       },
                     })}
                     placeholder="Maksimum sayfa sayısı"
@@ -728,22 +699,6 @@ export default function AIAgentNode({ id, data }: AIAgentNodeProps) {
             {data.type === 'translator' && (
               <>
                 <div className="space-y-2">
-                  <Label>Kaynak Dil</Label>
-                  <select
-                    className="w-full p-2 rounded-md border border-input bg-background"
-                    value={(config as TranslatorConfig).sourceLang}
-                    onChange={(e) => updateConfig<TranslatorConfig>({ sourceLang: e.target.value })}
-                  >
-                    <option value="auto">Otomatik Algıla</option>
-                    <option value="en">İngilizce</option>
-                    <option value="tr">Türkçe</option>
-                    <option value="de">Almanca</option>
-                    <option value="fr">Fransızca</option>
-                    <option value="es">İspanyolca</option>
-                  </select>
-                </div>
-
-                <div className="space-y-2">
                   <Label>Hedef Dil</Label>
                   <select
                     className="w-full p-2 rounded-md border border-input bg-background"
@@ -756,33 +711,6 @@ export default function AIAgentNode({ id, data }: AIAgentNodeProps) {
                     <option value="fr">Fransızca</option>
                     <option value="es">İspanyolca</option>
                   </select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Uzmanlık Alanı</Label>
-                  <select
-                    className="w-full p-2 rounded-md border border-input bg-background"
-                    value={(config as TranslatorConfig).specialization || 'general'}
-                    onChange={(e) => updateConfig<TranslatorConfig>({ 
-                      specialization: e.target.value as 'general' | 'technical' | 'legal' | 'medical' 
-                    })}
-                  >
-                    <option value="general">Genel</option>
-                    <option value="technical">Teknik</option>
-                    <option value="legal">Hukuki</option>
-                    <option value="medical">Tıbbi</option>
-                  </select>
-                </div>
-
-                <div className="flex items-center space-x-2">
-                  <input
-                    type="checkbox"
-                    id="preserveFormatting"
-                    checked={(config as TranslatorConfig).preserveFormatting}
-                    onChange={(e) => updateConfig<TranslatorConfig>({ preserveFormatting: e.target.checked })}
-                    className="rounded border-gray-300"
-                  />
-                  <Label htmlFor="preserveFormatting">Formatlamayı Koru</Label>
                 </div>
               </>
             )}

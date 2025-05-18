@@ -9,7 +9,7 @@ public class AiResponse {
     
     private String model;
     
-    private String response;
+    private String content;
     
     private long processingTimeMs;
     

@@ -42,7 +42,7 @@ public class AiControllerTest {
     public void testGenerateContent() throws Exception {
         AiResponse mockResponse = new AiResponse();
         mockResponse.setModel("huggingface/deepseek/deepseek-v3-0324");
-        mockResponse.setResponse("Generated content from HuggingFace model");
+        mockResponse.setContent("Generated content from HuggingFace model");
         mockResponse.setProcessingTimeMs(150);
         mockResponse.setSuccess(true);
 

@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { WebSearcherConfig, YoutubeSummarizerConfig, ResearchAgentConfig } from '@/store/types';
+import { WebSearcherConfig, YoutubeSummarizerConfig, ResearchAgentConfig, WebScraperConfig, TranslatorConfig } from '@/store/types';
 
 const API_URL = 'http://localhost:8081/agent-provider/api';
 const AXIOS_TIMEOUT = 60000; // 60 seconds
@@ -22,20 +22,20 @@ export async function executeYoutubeSummarizer(config: YoutubeSummarizerConfig) 
   }
 }
 
-export async function executeWebSearcher(config: WebSearcherConfig) {
+export async function executeWebSearcher(config: any) {
   try {
     const response = await axios.post(
-      `${API_URL}/websearch/search`,
+      `${API_URL}/agent/web-searcher`,
       {
-        query: config.searchQuery,
-        num_results: config.maxResults,
-        languages: [config.filters.language || 'en'],
+        content: config.content,
+        language: config.filters?.language || 'en-US',
+        maxResult: config.maxResults || 4
       },
       { timeout: AXIOS_TIMEOUT }
     );
     return response.data;
   } catch (error) {
-    console.error('Web Search API Error:', error);
+    console.error('Web Searcher API Error:', error);
     throw error;
   }
 }
@@ -61,6 +61,49 @@ export async function executeResearchAgent(config: ResearchAgentConfig) {
   }
 }
 
+export async function executeWebScraper(config: WebScraperConfig) {
+  try {
+    const response = await axios.post(
+      `${API_URL}/agent/web-scrapper`,
+      {
+        content: (config as any).content,
+        specialPrompt: (config as any).specialPrompt,
+        model: `${config.modelConfig.type}/${config.modelConfig.model}`,
+        maxLink: (config as any).rules?.maxPages || 1,
+        maxDepth: (config as any).rules?.maxDepth || 1,
+        maxTokens: config.modelConfig.maxTokens,
+        temperature: config.modelConfig.temperature
+      },
+      { timeout: AXIOS_TIMEOUT }
+    );
+    return response.data;
+  } catch (error) {
+    console.error('Web Scraper API Error:', error);
+    throw error;
+  }
+}
+
+export async function executeTranslator(config: TranslatorConfig) {
+  try {
+    const response = await axios.post(
+      `${API_URL}/agent/translator`,
+      {
+        content: config.content,
+        model: `${config.modelConfig.type}/${config.modelConfig.model}`,
+        targetLanguage: config.targetLang,
+        specialPrompt: config.modelConfig.systemPrompt,
+        temperature: config.modelConfig.temperature,
+        maxTokens: config.modelConfig.maxTokens
+      },
+      { timeout: AXIOS_TIMEOUT }
+    );
+    return response.data;
+  } catch (error) {
+    console.error('Translator API Error:', error);
+    throw error;
+  }
+}
+
 export async function executeAgent(type: string, config: any) {
   switch (type) {
     case 'youtubeSummarizer':
@@ -69,6 +112,10 @@ export async function executeAgent(type: string, config: any) {
       return executeWebSearcher(config);
     case 'researchAgent':
       return executeResearchAgent(config);
+    case 'webScraper':
+      return executeWebScraper(config);
+    case 'translator':
+      return executeTranslator(config);
     default:
       throw new Error('Desteklenmeyen agent tipi');
   }

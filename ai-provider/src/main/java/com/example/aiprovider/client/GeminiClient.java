@@ -26,7 +26,7 @@ public class GeminiClient extends BaseClient implements AiClient {
                     "temperature": %f
                 }
             }
-            """, request.getPrompt(), request.getMaxTokens(), request.getTemperature());
+            """, request.getContent(), request.getMaxTokens(), request.getTemperature());
             
         String jsonResponse = sendRequest(API_URL + "?key=" + apiKey, null, requestBody);
         

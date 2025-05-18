@@ -15,6 +15,14 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
+# Application Properties with Secrets
+**/application-secrets.properties
+**/application-secrets.yml
+**/application-secrets.yaml
+**/application-local.properties
+**/application-local.yml
+**/application-local.yaml
+
 # Python
 __pycache__/
 *.py[cod]

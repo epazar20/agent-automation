@@ -72,7 +72,7 @@ public class YoutubeServiceImpl implements YoutubeService {
             // Step 2: Send the transcript to AI service for summarization
             logger.info("Sending transcript to AI service for summarization");
             AiRequest aiRequest = AiRequest.builder()
-                    .prompt(transcriptResponse.getTranscriptionAsText())
+                    .content(transcriptResponse.getTranscriptionAsText())
                     .specialPrompt(request.getSpecialPrompt())
                     .model(request.getModel())
                     .maxTokens(request.getMaxTokens())
@@ -84,7 +84,7 @@ public class YoutubeServiceImpl implements YoutubeService {
             // Step 3: Build and return the final response
             YoutubeSummarizeResponse response = YoutubeSummarizeResponse.builder()
                     .videoId(videoId)
-                    .summaryContent(aiResponse.getResponse())
+                    .content(aiResponse.getContent())
                     .model(aiResponse.getModel())
                     .processingTimeMs(System.currentTimeMillis() - startTime)
                     .success(aiResponse.isSuccess())

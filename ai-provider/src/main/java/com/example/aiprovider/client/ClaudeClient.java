@@ -31,7 +31,7 @@ public class ClaudeClient extends BaseClient implements AiClient {
                 "max_tokens": %d,
                 "temperature": %f
             }
-            """, model, request.getPrompt(), request.getMaxTokens(), request.getTemperature());
+            """, model, request.getContent(), request.getMaxTokens(), request.getTemperature());
             
         String jsonResponse = sendRequest(API_URL, apiKey, requestBody);
         
