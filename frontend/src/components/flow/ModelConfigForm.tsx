@@ -81,7 +81,8 @@ export default function ModelConfigForm({ modelConfig, onChange, agentType }: Mo
   };
 
   // Check if this is the YouTube Summarizer or Translator
-  const isYoutubeSummarizer = agentType === 'youtubeSummarizer';
+
+
   const isTranslator = agentType === 'translator';
   const isDataAnalyst = agentType === 'dataAnalyst';
 
@@ -122,32 +123,28 @@ export default function ModelConfigForm({ modelConfig, onChange, agentType }: Mo
         </div>
       </div>
 
-      {!isYoutubeSummarizer && (
-        <>
-          <div className="space-y-1">
-            <Label>Sıcaklık (Temperature)</Label>
-            <Input
-              type="number"
-              min="0"
-              max="1"
-              step="0.1"
-              value={modelConfig.temperature}
-              onChange={(e) => onChange({ temperature: parseFloat(e.target.value) } as Partial<ModelConfig>)}
-            />
-          </div>
+      <div className="space-y-1">
+        <Label>Sıcaklık (Temperature)</Label>
+        <Input
+          type="number"
+          min="0"
+          max="1"
+          step="0.1"
+          value={modelConfig.temperature}
+          onChange={(e) => onChange({ temperature: parseFloat(e.target.value) } as Partial<ModelConfig>)}
+        />
+      </div>
 
-          <div className="space-y-1">
-            <Label>Sistem Prompt</Label>
-            <textarea
-              className="w-full p-2 rounded-md border border-input bg-background"
-              value={modelConfig.systemPrompt || getDefaultSystemPrompt()}
-              onChange={(e) => onChange({ systemPrompt: e.target.value } as Partial<ModelConfig>)}
-              placeholder={getDefaultSystemPrompt()}
-              rows={2}
-            />
-          </div>
-        </>
-      )}
+      <div className="space-y-1">
+        <Label>Sistem Prompt</Label>
+        <textarea
+          className="w-full p-2 rounded-md border border-input bg-background"
+          value={modelConfig.systemPrompt || getDefaultSystemPrompt()}
+          onChange={(e) => onChange({ systemPrompt: e.target.value } as Partial<ModelConfig>)}
+          placeholder={getDefaultSystemPrompt()}
+          rows={2}
+        />
+      </div>
     </div>
   );
 } 

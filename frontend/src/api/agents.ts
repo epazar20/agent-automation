@@ -10,8 +10,11 @@ export async function executeYoutubeSummarizer(config: YoutubeSummarizerConfig) 
       `${API_URL}/agent/youtube-summarize`,
       {
         url: config.url,
-        specialPrompt: config.specialPrompt,
-        model: `${config.modelConfig.type}/${config.modelConfig.model}`
+        content: (config as any).content,
+        specialPrompt: (config as any).specialPrompt,
+        model: `${config.modelConfig.type}/${config.modelConfig.model}`, 
+        maxTokens: config.modelConfig.maxTokens,
+        temperature: config.modelConfig.temperature
       },
       { timeout: AXIOS_TIMEOUT }
     );
@@ -107,7 +110,7 @@ export async function executeTranslator(config: TranslatorConfig) {
 export async function executeDataAnalyst(config: DataAnalystConfig) {
   try {
     const formData = new FormData();
-    
+
     if (config.file) {
       formData.append('file', config.file);
     }
@@ -127,7 +130,7 @@ export async function executeDataAnalyst(config: DataAnalystConfig) {
     const response = await axios.post(
       `${API_URL}/agent/data-analyser`,
       formData,
-      { 
+      {
         timeout: AXIOS_TIMEOUT,
         headers: {
           'Content-Type': 'multipart/form-data'

@@ -16,18 +16,18 @@ import remarkGfm from 'remark-gfm';
 import remarkBreaks from 'remark-breaks';
 import rehypeRaw from 'rehype-raw';
 import { Components } from 'react-markdown';
-import { 
+import {
   Settings,
   FileText,
   BarChart,
   X
 } from 'lucide-react';
-import { 
-  AgentType, 
-  AgentConfig, 
-  YoutubeSummarizerConfig, 
-  WebSearcherConfig, 
-  ResearchAgentConfig, 
+import {
+  AgentType,
+  AgentConfig,
+  YoutubeSummarizerConfig,
+  WebSearcherConfig,
+  ResearchAgentConfig,
   WebScraperConfig,
   CodeInterpreterConfig,
   DataAnalystConfig,
@@ -61,10 +61,10 @@ export default function AIAgentNode({ id, data }: AIAgentNodeProps) {
   const executionResults = useSelector((state: RootState) => state.flow.executionResults);
 
   // Get execution status and result from redux
-  const executionStatus = useSelector((state: RootState) => 
+  const executionStatus = useSelector((state: RootState) =>
     state.flow.executionResults[id]?.status || 'idle'
   );
-  const executionResult = useSelector((state: RootState) => 
+  const executionResult = useSelector((state: RootState) =>
     state.flow.executionResults[id]?.output || null
   );
 
@@ -178,10 +178,10 @@ export default function AIAgentNode({ id, data }: AIAgentNodeProps) {
   // Format content for better display
   const formatContent = (content: string) => {
     if (!content) return '';
-    
+
     // Replace \n with actual newlines
     let formatted = content.replace(/\\n/g, '\n');
-    
+
     // Fix table formatting if needed
     if (formatted.includes('|')) {
       const lines = formatted.split('\n');
@@ -197,7 +197,7 @@ export default function AIAgentNode({ id, data }: AIAgentNodeProps) {
       });
       formatted = formattedLines.join('\n');
     }
-    
+
     return formatted;
   };
 
@@ -209,7 +209,7 @@ export default function AIAgentNode({ id, data }: AIAgentNodeProps) {
         className="w-3 h-3 !bg-muted-foreground dark:!bg-muted-foreground group-hover:!bg-primary"
         id="target"
       />
-      
+
       {/* Action Buttons */}
       <div className="absolute -top-2 -right-2 z-10 flex space-x-1">
         {/* Settings Button - Always visible */}
@@ -269,10 +269,10 @@ export default function AIAgentNode({ id, data }: AIAgentNodeProps) {
           <X className="h-3 w-3" />
         </Button>
       </div>
-      
+
       {/* Configuration Dialog */}
       <Dialog open={isConfigOpen} onOpenChange={setIsConfigOpen}>
-        <Card 
+        <Card
           className="w-48 cursor-pointer hover:ring-2 hover:ring-primary [&.selected]:ring-2 [&.selected]:ring-primary [&.selected]:shadow-md [&.selected]:shadow-primary/25 [&.selected]:scale-105 transition-all duration-200 relative"
           onClick={(e) => {
             if (e.ctrlKey || e.metaKey || e.shiftKey || e.button === 2) {
@@ -285,7 +285,7 @@ export default function AIAgentNode({ id, data }: AIAgentNodeProps) {
           }}
         >
           {isProcessing && <LoadingOverlay />}
-          
+
           <CardHeader className="p-3">
             <CardTitle className="text-sm flex items-center space-x-2">
               <div className={`w-8 h-8 ${getNodeColor()} rounded flex items-center justify-center relative`}>
@@ -298,37 +298,35 @@ export default function AIAgentNode({ id, data }: AIAgentNodeProps) {
             </CardTitle>
           </CardHeader>
         </Card>
-        
+
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
             <DialogTitle>
               {`${defaultAgentConfigs[data.type].name} Yapılandırması`}
             </DialogTitle>
           </DialogHeader>
-          
+
           <div className="space-y-2 py-2">
             {/* Model yapılandırması - tüm agent tipleri için ortak */}
             {data.type !== 'webSearcher' && (
-              <ModelConfigForm 
-                modelConfig={config.modelConfig} 
+              <ModelConfigForm
+                modelConfig={config.modelConfig}
                 onChange={updateModelConfig}
                 agentType={data.type}
               />
             )}
 
-            {/* Content field for all except youtubeSummarizer */}
-            {data.type !== 'youtubeSummarizer' && (
-              <div className="space-y-1">
-                <Label>İçerik (Content)</Label>
-                <textarea
-                  className="w-full p-2 rounded-md border border-input bg-background"
-                  value={(config as any).content || ''}
-                  onChange={e => setConfig(prev => ({ ...prev, content: e.target.value }))}
-                  placeholder="İçerik girin veya önceki node'dan otomatik alınır"
-                  rows={3}
-                />
-              </div>
-            )}
+            {/* Content field for all agent types */}
+            <div className="space-y-1">
+              <Label>İçerik (Content)</Label>
+              <textarea
+                className="w-full p-2 rounded-md border border-input bg-background"
+                value={(config as any).content || ''}
+                onChange={e => setConfig(prev => ({ ...prev, content: e.target.value }))}
+                placeholder="İçerik girin veya önceki node'dan otomatik alınır"
+                rows={3}
+              />
+            </div>
 
             {/* YouTube Summarizer yapılandırması */}
             {data.type === 'youtubeSummarizer' && (
@@ -342,17 +340,11 @@ export default function AIAgentNode({ id, data }: AIAgentNodeProps) {
                   />
                 </div>
 
-                <div className="space-y-2">
-                  <Label>Özel Prompt</Label>
-                  <Textarea
-                    value={(config as YoutubeSummarizerConfig).specialPrompt}
-                    onChange={(e) => updateConfig<YoutubeSummarizerConfig>({ specialPrompt: e.target.value })}
-                    placeholder="Özel prompt girin (örn: Sen bir transkript özetleyicisin. Verilen metni özetleyeceksin)"
-                  />
-                </div>
+
+
               </>
             )}
-            
+
             {/* Web Searcher yapılandırması */}
             {data.type === 'webSearcher' && (
               <>
@@ -419,8 +411,8 @@ export default function AIAgentNode({ id, data }: AIAgentNodeProps) {
                   <select
                     className="w-full p-2 rounded-md border border-input bg-background"
                     value={(config as ResearchAgentConfig).depth}
-                    onChange={(e) => updateConfig<ResearchAgentConfig>({ 
-                      depth: e.target.value as 'basic' | 'detailed' | 'comprehensive' 
+                    onChange={(e) => updateConfig<ResearchAgentConfig>({
+                      depth: e.target.value as 'basic' | 'detailed' | 'comprehensive'
                     })}
                   >
                     <option value="basic">Temel</option>
@@ -449,8 +441,8 @@ export default function AIAgentNode({ id, data }: AIAgentNodeProps) {
                   <select
                     className="w-full p-2 rounded-md border border-input bg-background"
                     value={(config as ResearchAgentConfig).format}
-                    onChange={(e) => updateConfig<ResearchAgentConfig>({ 
-                      format: e.target.value as 'text' | 'markdown' | 'bullet' 
+                    onChange={(e) => updateConfig<ResearchAgentConfig>({
+                      format: e.target.value as 'text' | 'markdown' | 'bullet'
                     })}
                   >
                     <option value="text">Düz Metin</option>
@@ -638,8 +630,8 @@ export default function AIAgentNode({ id, data }: AIAgentNodeProps) {
                   <select
                     className="w-full p-2 rounded-md border border-input bg-background"
                     value={(config as ImageGeneratorConfig).provider}
-                    onChange={(e) => updateConfig<ImageGeneratorConfig>({ 
-                      provider: e.target.value as 'dalle' | 'stable-diffusion' | 'midjourney' 
+                    onChange={(e) => updateConfig<ImageGeneratorConfig>({
+                      provider: e.target.value as 'dalle' | 'stable-diffusion' | 'midjourney'
                     })}
                   >
                     <option value="dalle">DALL-E</option>
@@ -685,8 +677,8 @@ export default function AIAgentNode({ id, data }: AIAgentNodeProps) {
                     min="10"
                     max="150"
                     value={(config as ImageGeneratorConfig).samplingSteps}
-                    onChange={(e) => updateConfig<ImageGeneratorConfig>({ 
-                      samplingSteps: parseInt(e.target.value) || 20 
+                    onChange={(e) => updateConfig<ImageGeneratorConfig>({
+                      samplingSteps: parseInt(e.target.value) || 20
                     })}
                   />
                 </div>
@@ -703,8 +695,8 @@ export default function AIAgentNode({ id, data }: AIAgentNodeProps) {
                     min="100"
                     max="10000"
                     value={(config as TextGeneratorConfig).maxLength}
-                    onChange={(e) => updateConfig<TextGeneratorConfig>({ 
-                      maxLength: parseInt(e.target.value) || 2000 
+                    onChange={(e) => updateConfig<TextGeneratorConfig>({
+                      maxLength: parseInt(e.target.value) || 2000
                     })}
                     placeholder="Maksimum karakter sayısı"
                   />
@@ -715,8 +707,8 @@ export default function AIAgentNode({ id, data }: AIAgentNodeProps) {
                   <select
                     className="w-full p-2 rounded-md border border-input bg-background"
                     value={(config as TextGeneratorConfig).format}
-                    onChange={(e) => updateConfig<TextGeneratorConfig>({ 
-                      format: e.target.value as 'markdown' | 'html' | 'plain' 
+                    onChange={(e) => updateConfig<TextGeneratorConfig>({
+                      format: e.target.value as 'markdown' | 'html' | 'plain'
                     })}
                   >
                     <option value="markdown">Markdown</option>
@@ -765,48 +757,48 @@ export default function AIAgentNode({ id, data }: AIAgentNodeProps) {
                 rehypePlugins={[rehypeRaw]}
                 components={{
                   // Style table components
-                  table: ({node, ...props}) => (
+                  table: ({ node, ...props }) => (
                     <div className="my-4 w-full overflow-x-auto">
                       <table className="w-full border-collapse border border-gray-200 dark:border-gray-700" {...props} />
                     </div>
                   ),
-                  thead: ({node, ...props}) => (
+                  thead: ({ node, ...props }) => (
                     <thead className="bg-gray-50 dark:bg-gray-800" {...props} />
                   ),
-                  th: ({node, ...props}) => (
+                  th: ({ node, ...props }) => (
                     <th className="border border-gray-200 dark:border-gray-700 px-4 py-2 text-left text-sm font-medium text-gray-500 dark:text-gray-300" {...props} />
                   ),
-                  td: ({node, ...props}) => (
+                  td: ({ node, ...props }) => (
                     <td className="border border-gray-200 dark:border-gray-700 px-4 py-2 text-sm text-gray-500 dark:text-gray-300" {...props} />
                   ),
                   // Style headings
-                  h1: ({node, ...props}) => (
+                  h1: ({ node, ...props }) => (
                     <h1 className="text-2xl font-bold mt-6 mb-4 text-gray-900 dark:text-gray-100 first:mt-0" {...props} />
                   ),
-                  h2: ({node, ...props}) => (
+                  h2: ({ node, ...props }) => (
                     <h2 className="text-xl font-bold mt-6 mb-3 text-gray-800 dark:text-gray-200" {...props} />
                   ),
-                  h3: ({node, ...props}) => (
+                  h3: ({ node, ...props }) => (
                     <h3 className="text-lg font-semibold mt-4 mb-2 text-gray-800 dark:text-gray-200" {...props} />
                   ),
                   // Style paragraphs and lists
-                  p: ({node, ...props}) => (
+                  p: ({ node, ...props }) => (
                     <p className="my-3 text-gray-600 dark:text-gray-300 leading-relaxed" {...props} />
                   ),
-                  ul: ({node, ...props}) => (
+                  ul: ({ node, ...props }) => (
                     <ul className="my-3 ml-6 list-disc text-gray-600 dark:text-gray-300 space-y-2" {...props} />
                   ),
-                  ol: ({node, ...props}) => (
+                  ol: ({ node, ...props }) => (
                     <ol className="my-3 ml-6 list-decimal text-gray-600 dark:text-gray-300 space-y-2" {...props} />
                   ),
-                  li: ({node, ...props}) => (
+                  li: ({ node, ...props }) => (
                     <li className="leading-relaxed" {...props} />
                   ),
                   // Style code blocks
-                  code: ({node, className, children, ...props}: any) => {
+                  code: ({ node, className, children, ...props }: any) => {
                     const match = /language-(\w+)/.exec(className || '');
                     const isInline = !match;
-                    return isInline 
+                    return isInline
                       ? <code className="px-1.5 py-0.5 rounded-md bg-gray-100 dark:bg-gray-800 text-sm font-mono" {...props}>{children}</code>
                       : (
                         <div className="relative my-4">
@@ -817,7 +809,7 @@ export default function AIAgentNode({ id, data }: AIAgentNodeProps) {
                       );
                   },
                   // Style blockquotes
-                  blockquote: ({node, ...props}) => (
+                  blockquote: ({ node, ...props }) => (
                     <blockquote className="border-l-4 border-gray-200 dark:border-gray-700 pl-4 my-4 italic text-gray-600 dark:text-gray-300" {...props} />
                   ),
                 }}
@@ -836,8 +828,8 @@ export default function AIAgentNode({ id, data }: AIAgentNodeProps) {
             <DialogTitle>Grafik Görüntüleyici</DialogTitle>
           </DialogHeader>
           <div className="flex justify-center">
-            <img 
-              src={`data:image/png;base64,${executionResult?.base64Image}`} 
+            <img
+              src={`data:image/png;base64,${executionResult?.base64Image}`}
               alt="Analiz Grafiği"
               className="max-w-full"
             />
