@@ -12,17 +12,22 @@ import com.example.agentprovider.model.WebSearcherResponse;
 import com.example.agentprovider.service.WebSearcherService;
 import com.example.agentprovider.model.TranslatorRequest;
 import com.example.agentprovider.model.TranslatorResponse;
+import com.example.agentprovider.model.DataAnalyserRequest;
+import com.example.agentprovider.model.DataAnalyserResponse;
+import com.example.agentprovider.service.DataAnalyserService;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.HashMap;
 import java.util.Map;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.core.JsonProcessingException;
 
 @RestController
 @RequestMapping("/api/agent")
@@ -32,14 +37,21 @@ public class AgentController {
     private final WebScrapperService webScrapperService;
     private final WebSearcherService webSearcherService;
     private final TranslatorService translatorService;
+    private final DataAnalyserService dataAnalyserService;
+    private final ObjectMapper objectMapper;
     
     @Autowired
     public AgentController(YoutubeService youtubeService, WebScrapperService webScrapperService, 
-                         WebSearcherService webSearcherService, TranslatorService translatorService) {
+                         WebSearcherService webSearcherService, TranslatorService translatorService,
+                         DataAnalyserService dataAnalyserService) {
         this.youtubeService = youtubeService;
         this.webScrapperService = webScrapperService;
         this.webSearcherService = webSearcherService;
         this.translatorService = translatorService;
+        this.dataAnalyserService = dataAnalyserService;
+        
+        this.objectMapper = new ObjectMapper()
+            .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
     }
 
     @GetMapping("/status")
@@ -72,5 +84,42 @@ public class AgentController {
     public ResponseEntity<TranslatorResponse> translate(@RequestBody TranslatorRequest request) {
         TranslatorResponse response = translatorService.translate(request);
         return ResponseEntity.ok(response);
+    }
+
+    @PostMapping(value = "/data-analyser", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<DataAnalyserResponse> analyseData(
+            @RequestParam(value = "file", required = false) MultipartFile file,
+            @RequestParam("request") String requestJson) {
+        try {
+            System.out.println("Received request JSON: " + requestJson);
+            
+            // Create a new instance and set properties manually
+            DataAnalyserRequest request = new DataAnalyserRequest();
+            Map<String, Object> jsonMap = objectMapper.readValue(requestJson, Map.class);
+            
+            // Set parent class properties
+            request.setContent((String) jsonMap.get("content"));
+            request.setSpecialPrompt((String) jsonMap.get("specialPrompt"));
+            request.setModel((String) jsonMap.get("model"));
+            request.setMaxTokens((Integer) jsonMap.get("maxTokens"));
+            request.setTemperature(((Number) jsonMap.get("temperature")).doubleValue());
+            
+            // Set child class properties
+            request.setXAxis((String) jsonMap.get("xAxis"));
+            request.setYAxis((String) jsonMap.get("yAxis"));
+            
+            System.out.println("Created request object: " + request);
+            
+            DataAnalyserResponse response = dataAnalyserService.analyseData(file, request);
+            return ResponseEntity.ok(response);
+        } catch (JsonProcessingException e) {
+            System.err.println("JSON Processing Error: " + e.getMessage());
+            e.printStackTrace();
+            return ResponseEntity.badRequest().build();
+        } catch (Exception e) {
+            System.err.println("General Error: " + e.getMessage());
+            e.printStackTrace();
+            return ResponseEntity.badRequest().build();
+        }
     }
 } 

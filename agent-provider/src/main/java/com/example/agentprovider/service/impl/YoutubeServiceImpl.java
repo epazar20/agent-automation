@@ -100,13 +100,13 @@ public class YoutubeServiceImpl implements YoutubeService {
 
             // Step 2: Send the transcript to AI service for summarization
             logger.info("Sending transcript to AI service for summarization");
-            AiRequest aiRequest = AiRequest.builder()
-                    .content(transcriptResponse.getTranscriptionAsText())
-                    .specialPrompt(request.getSpecialPrompt())
-                    .model(request.getModel())
-                    .maxTokens(request.getMaxTokens())
-                    .temperature(request.getTemperature())
-                    .build();
+            AiRequest aiRequest = new AiRequest(
+                transcriptResponse.getTranscriptionAsText(),
+                request.getSpecialPrompt(),
+                request.getModel(),
+                request.getMaxTokens(),
+                request.getTemperature()
+            );
 
             AiResponse aiResponse = aiProviderClient.generateContent(aiRequest);
 

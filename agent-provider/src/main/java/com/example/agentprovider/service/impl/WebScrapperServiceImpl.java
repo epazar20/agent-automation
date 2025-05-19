@@ -60,13 +60,13 @@ public class WebScrapperServiceImpl implements WebScrapperService {
             if (content == null || content.trim().isEmpty()) {
                 content = mergedContent;
             }
-            AiRequest aiRequest = AiRequest.builder()
-                    .content(content)
-                    .specialPrompt(request.getSpecialPrompt())
-                    .model(request.getModel())
-                    .maxTokens(request.getMaxTokens())
-                    .temperature(request.getTemperature())
-                    .build();
+            AiRequest aiRequest = new AiRequest(
+                content,
+                request.getSpecialPrompt(),
+                request.getModel(),
+                request.getMaxTokens(),
+                request.getTemperature()
+            );
             logger.info("AI Provider'a gönderilen istek: {}", aiRequest);
             logger.info("AI Provider content length: {}", content != null ? content.length() : 0);
             AiResponse aiResponse = aiProviderClient.generateContent(aiRequest);
