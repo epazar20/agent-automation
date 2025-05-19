@@ -5,24 +5,13 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import lombok.experimental.SuperBuilder;
 
 @Getter
 @Setter
-@Builder
+@SuperBuilder
 @NoArgsConstructor
 @AllArgsConstructor
-public class YoutubeSummarizeResponse {
-    
+public class YoutubeSummarizeResponse extends AiResponse {
     private String videoId;
-    
-    private String content;
-    
-    private String model;
-    
-    private long processingTimeMs;
-    
-    @Builder.Default
-    private boolean success = true;
-    
-    private String errorMessage;
 } 

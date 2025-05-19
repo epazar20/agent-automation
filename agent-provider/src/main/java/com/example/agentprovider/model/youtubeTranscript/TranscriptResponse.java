@@ -1,4 +1,4 @@
-package com.example.agentprovider.model;
+package com.example.agentprovider.model.youtubeTranscript;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import lombok.Data;
