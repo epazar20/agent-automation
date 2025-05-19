@@ -10,6 +10,18 @@ import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useDispatch, useSelector } from 'react-redux';
 import { updateNode, removeNode } from '@/store/slices/flowSlice';
+import { LoadingOverlay } from '@/components/ui/loading';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import remarkBreaks from 'remark-breaks';
+import rehypeRaw from 'rehype-raw';
+import { Components } from 'react-markdown';
+import { 
+  Settings,
+  FileText,
+  BarChart,
+  X
+} from 'lucide-react';
 import { 
   AgentType, 
   AgentConfig, 
@@ -26,7 +38,6 @@ import {
 } from '@/store/types';
 import { toast } from 'sonner';
 import { defaultAgentConfigs, createDefaultAgentConfig } from '@/store/defaultConfigs';
-import { X } from 'lucide-react';
 import ModelConfigForm from './ModelConfigForm';
 import { RootState } from '@/store';
 
@@ -41,11 +52,25 @@ type AIAgentNodeProps = {
 export default function AIAgentNode({ id, data }: AIAgentNodeProps) {
   const dispatch = useDispatch();
   const [config, setConfig] = useState<AgentConfig>(data.config);
-  const [isOpen, setIsOpen] = useState(false);
+  const [isConfigOpen, setIsConfigOpen] = useState(false);
+  const [isContentOpen, setIsContentOpen] = useState(false);
+  const [isChartOpen, setIsChartOpen] = useState(false);
 
   // Get edges and executionResults from redux
   const edges = useSelector((state: RootState) => state.flow.edges);
   const executionResults = useSelector((state: RootState) => state.flow.executionResults);
+
+  // Get execution status and result from redux
+  const executionStatus = useSelector((state: RootState) => 
+    state.flow.executionResults[id]?.status || 'idle'
+  );
+  const executionResult = useSelector((state: RootState) => 
+    state.flow.executionResults[id]?.output || null
+  );
+
+  const isProcessing = executionStatus === 'running';
+  const hasContent = executionResult?.content;
+  const hasChart = data.type === 'dataAnalyst' && executionResult?.base64Image;
 
   // Find previous node's output content if available
   useEffect(() => {
@@ -146,8 +171,34 @@ export default function AIAgentNode({ id, data }: AIAgentNodeProps) {
         },
       },
     }));
-    setIsOpen(false);
+    setIsConfigOpen(false);
     toast.success('Yapılandırma kaydedildi');
+  };
+
+  // Format content for better display
+  const formatContent = (content: string) => {
+    if (!content) return '';
+    
+    // Replace \n with actual newlines
+    let formatted = content.replace(/\\n/g, '\n');
+    
+    // Fix table formatting if needed
+    if (formatted.includes('|')) {
+      const lines = formatted.split('\n');
+      const formattedLines = lines.map(line => {
+        if (line.trim().startsWith('|')) {
+          // Ensure proper spacing in table cells
+          return line.split('|')
+            .map(cell => cell.trim())
+            .filter(cell => cell)
+            .join(' | ');
+        }
+        return line;
+      });
+      formatted = formattedLines.join('\n');
+    }
+    
+    return formatted;
   };
 
   return (
@@ -159,11 +210,56 @@ export default function AIAgentNode({ id, data }: AIAgentNodeProps) {
         id="target"
       />
       
-      <div className="absolute -top-2 -right-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
+      {/* Action Buttons */}
+      <div className="absolute -top-2 -right-2 z-10 flex space-x-1">
+        {/* Settings Button - Always visible */}
+        <Button
+          size="icon"
+          variant="secondary"
+          className="h-5 w-5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+          onClick={(e) => {
+            e.stopPropagation();
+            setIsConfigOpen(true);
+          }}
+        >
+          <Settings className="h-3 w-3" />
+        </Button>
+
+        {/* Content Button - Visible after successful execution */}
+        {hasContent && (
+          <Button
+            size="icon"
+            variant="secondary"
+            className="h-5 w-5 rounded-full"
+            onClick={(e) => {
+              e.stopPropagation();
+              setIsContentOpen(true);
+            }}
+          >
+            <FileText className="h-3 w-3" />
+          </Button>
+        )}
+
+        {/* Chart Button - Only for DataAnalyst with chart data */}
+        {hasChart && (
+          <Button
+            size="icon"
+            variant="secondary"
+            className="h-5 w-5 rounded-full"
+            onClick={(e) => {
+              e.stopPropagation();
+              setIsChartOpen(true);
+            }}
+          >
+            <BarChart className="h-3 w-3" />
+          </Button>
+        )}
+
+        {/* Delete Button */}
         <Button
           size="icon"
           variant="destructive"
-          className="h-5 w-5 rounded-full"
+          className="h-5 w-5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
           onClick={(e) => {
             e.stopPropagation();
             dispatch(removeNode(id));
@@ -174,24 +270,25 @@ export default function AIAgentNode({ id, data }: AIAgentNodeProps) {
         </Button>
       </div>
       
-      <Dialog open={isOpen} onOpenChange={setIsOpen}>
+      {/* Configuration Dialog */}
+      <Dialog open={isConfigOpen} onOpenChange={setIsConfigOpen}>
         <Card 
-          className="w-48 cursor-pointer hover:ring-2 hover:ring-primary [&.selected]:ring-2 [&.selected]:ring-primary [&.selected]:shadow-md [&.selected]:shadow-primary/25 [&.selected]:scale-105 transition-all duration-200"
+          className="w-48 cursor-pointer hover:ring-2 hover:ring-primary [&.selected]:ring-2 [&.selected]:ring-primary [&.selected]:shadow-md [&.selected]:shadow-primary/25 [&.selected]:scale-105 transition-all duration-200 relative"
           onClick={(e) => {
             if (e.ctrlKey || e.metaKey || e.shiftKey || e.button === 2) {
               return;
             }
-            // Clicking the node should just select it, not open dialog
-            // Dialog will open on double click instead
           }}
           onDoubleClick={(e) => {
             e.stopPropagation();
-            setIsOpen(true);
+            setIsConfigOpen(true);
           }}
         >
+          {isProcessing && <LoadingOverlay />}
+          
           <CardHeader className="p-3">
             <CardTitle className="text-sm flex items-center space-x-2">
-              <div className={`w-8 h-8 ${getNodeColor()} rounded flex items-center justify-center`}>
+              <div className={`w-8 h-8 ${getNodeColor()} rounded flex items-center justify-center relative`}>
                 <span className="text-base">{getNodeIcon()}</span>
               </div>
               <div className="flex flex-col">
@@ -651,6 +748,99 @@ export default function AIAgentNode({ id, data }: AIAgentNodeProps) {
             )}
 
             <Button className="w-full" onClick={handleSave}>Kaydet</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Content Preview Dialog */}
+      <Dialog open={isContentOpen} onOpenChange={setIsContentOpen}>
+        <DialogContent className="sm:max-w-[800px] h-[80vh] flex flex-col p-0">
+          <DialogHeader className="px-6 py-4 border-b">
+            <DialogTitle className="text-xl font-semibold">İçerik Görüntüleyici</DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 overflow-y-auto px-6 py-4">
+            <div className="prose dark:prose-invert prose-sm sm:prose-base lg:prose-lg max-w-none">
+              <ReactMarkdown
+                remarkPlugins={[remarkGfm, remarkBreaks]}
+                rehypePlugins={[rehypeRaw]}
+                components={{
+                  // Style table components
+                  table: ({node, ...props}) => (
+                    <div className="my-4 w-full overflow-x-auto">
+                      <table className="w-full border-collapse border border-gray-200 dark:border-gray-700" {...props} />
+                    </div>
+                  ),
+                  thead: ({node, ...props}) => (
+                    <thead className="bg-gray-50 dark:bg-gray-800" {...props} />
+                  ),
+                  th: ({node, ...props}) => (
+                    <th className="border border-gray-200 dark:border-gray-700 px-4 py-2 text-left text-sm font-medium text-gray-500 dark:text-gray-300" {...props} />
+                  ),
+                  td: ({node, ...props}) => (
+                    <td className="border border-gray-200 dark:border-gray-700 px-4 py-2 text-sm text-gray-500 dark:text-gray-300" {...props} />
+                  ),
+                  // Style headings
+                  h1: ({node, ...props}) => (
+                    <h1 className="text-2xl font-bold mt-6 mb-4 text-gray-900 dark:text-gray-100 first:mt-0" {...props} />
+                  ),
+                  h2: ({node, ...props}) => (
+                    <h2 className="text-xl font-bold mt-6 mb-3 text-gray-800 dark:text-gray-200" {...props} />
+                  ),
+                  h3: ({node, ...props}) => (
+                    <h3 className="text-lg font-semibold mt-4 mb-2 text-gray-800 dark:text-gray-200" {...props} />
+                  ),
+                  // Style paragraphs and lists
+                  p: ({node, ...props}) => (
+                    <p className="my-3 text-gray-600 dark:text-gray-300 leading-relaxed" {...props} />
+                  ),
+                  ul: ({node, ...props}) => (
+                    <ul className="my-3 ml-6 list-disc text-gray-600 dark:text-gray-300 space-y-2" {...props} />
+                  ),
+                  ol: ({node, ...props}) => (
+                    <ol className="my-3 ml-6 list-decimal text-gray-600 dark:text-gray-300 space-y-2" {...props} />
+                  ),
+                  li: ({node, ...props}) => (
+                    <li className="leading-relaxed" {...props} />
+                  ),
+                  // Style code blocks
+                  code: ({node, className, children, ...props}: any) => {
+                    const match = /language-(\w+)/.exec(className || '');
+                    const isInline = !match;
+                    return isInline 
+                      ? <code className="px-1.5 py-0.5 rounded-md bg-gray-100 dark:bg-gray-800 text-sm font-mono" {...props}>{children}</code>
+                      : (
+                        <div className="relative my-4">
+                          <code className="block p-4 rounded-md bg-gray-100 dark:bg-gray-800 text-sm font-mono overflow-x-auto" {...props}>
+                            {children}
+                          </code>
+                        </div>
+                      );
+                  },
+                  // Style blockquotes
+                  blockquote: ({node, ...props}) => (
+                    <blockquote className="border-l-4 border-gray-200 dark:border-gray-700 pl-4 my-4 italic text-gray-600 dark:text-gray-300" {...props} />
+                  ),
+                }}
+              >
+                {formatContent(executionResult?.content || '')}
+              </ReactMarkdown>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Chart Preview Dialog */}
+      <Dialog open={isChartOpen} onOpenChange={setIsChartOpen}>
+        <DialogContent className="sm:max-w-[800px]">
+          <DialogHeader>
+            <DialogTitle>Grafik Görüntüleyici</DialogTitle>
+          </DialogHeader>
+          <div className="flex justify-center">
+            <img 
+              src={`data:image/png;base64,${executionResult?.base64Image}`} 
+              alt="Analiz Grafiği"
+              className="max-w-full"
+            />
           </div>
         </DialogContent>
       </Dialog>
