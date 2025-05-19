@@ -96,16 +96,10 @@ export interface CodeInterpreterConfig extends BaseAgentConfig {
 }
 
 export interface DataAnalystConfig extends BaseAgentConfig {
-  supportedFormats: ('csv' | 'json' | 'excel' | 'sql')[];
-  visualization: {
-    enabled: boolean;
-    libraries: ('matplotlib' | 'plotly' | 'seaborn')[];
-  };
-  database: {
-    type?: 'mysql' | 'postgresql' | 'sqlite';
-    connection?: string;
-  };
-  caching: boolean;
+  file: File | null;
+  content: string;
+  xAxis: string;
+  yAxis: string;
 }
 
 export interface ImageGeneratorConfig extends BaseAgentConfig {

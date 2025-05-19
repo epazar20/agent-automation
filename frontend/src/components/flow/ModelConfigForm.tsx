@@ -83,10 +83,14 @@ export default function ModelConfigForm({ modelConfig, onChange, agentType }: Mo
   // Check if this is the YouTube Summarizer or Translator
   const isYoutubeSummarizer = agentType === 'youtubeSummarizer';
   const isTranslator = agentType === 'translator';
+  const isDataAnalyst = agentType === 'dataAnalyst';
 
   const getDefaultSystemPrompt = () => {
     if (isTranslator) {
       return 'Dil bilgisi ve anlam açısından kontrol edicisin sorun varsa ancak düzeltmelisin';
+    }
+    if (isDataAnalyst) {
+      return 'Sen bir veri analizcisin. Verileri detaylı analiz edip istenen bilgileri sağlamalısın';
     }
     return 'Sen bir transkript özetleyicisin. Verilen metni özetleyeceksin';
   };

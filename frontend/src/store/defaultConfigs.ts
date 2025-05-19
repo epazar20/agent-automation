@@ -82,14 +82,13 @@ export const defaultAgentConfigs: Record<AgentType, Partial<AgentConfig>> = {
     timeoutSeconds: 30,
   },
   dataAnalyst: {
-    name: 'Data Analyst',
-    description: 'Veri analizi ve görselleştirme',
-    supportedFormats: ['csv', 'json', 'excel'],
-    visualization: {
-      enabled: true,
-      libraries: ['matplotlib', 'plotly'],
-    },
-    caching: true,
+    name: 'Veri Analisti',
+    description: 'Veri analizi ve görselleştirme yapar',
+    file: null,
+    content: '',
+    xAxis: '',
+    yAxis: '',
+    modelConfig: defaultModelConfig
   },
   imageGenerator: {
     name: 'Image Generator',

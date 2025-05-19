@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { WebSearcherConfig, YoutubeSummarizerConfig, ResearchAgentConfig, WebScraperConfig, TranslatorConfig } from '@/store/types';
+import { WebSearcherConfig, YoutubeSummarizerConfig, ResearchAgentConfig, WebScraperConfig, TranslatorConfig, DataAnalystConfig } from '@/store/types';
 
 const API_URL = 'http://localhost:8081/agent-provider/api';
 const AXIOS_TIMEOUT = 60000; // 60 seconds
@@ -104,6 +104,43 @@ export async function executeTranslator(config: TranslatorConfig) {
   }
 }
 
+export async function executeDataAnalyst(config: DataAnalystConfig) {
+  try {
+    const formData = new FormData();
+    
+    if (config.file) {
+      formData.append('file', config.file);
+    }
+
+    const requestData = {
+      content: config.content,
+      model: `${config.modelConfig.type}/${config.modelConfig.model}`,
+      specialPrompt: config.modelConfig.systemPrompt,
+      temperature: config.modelConfig.temperature,
+      maxTokens: config.modelConfig.maxTokens,
+      xAxis: config.xAxis,
+      yAxis: config.yAxis
+    };
+
+    formData.append('request', JSON.stringify(requestData));
+
+    const response = await axios.post(
+      `${API_URL}/agent/data-analyser`,
+      formData,
+      { 
+        timeout: AXIOS_TIMEOUT,
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      }
+    );
+    return response.data;
+  } catch (error) {
+    console.error('Data Analyst API Error:', error);
+    throw error;
+  }
+}
+
 export async function executeAgent(type: string, config: any) {
   switch (type) {
     case 'youtubeSummarizer':
@@ -116,6 +153,8 @@ export async function executeAgent(type: string, config: any) {
       return executeWebScraper(config);
     case 'translator':
       return executeTranslator(config);
+    case 'dataAnalyst':
+      return executeDataAnalyst(config);
     default:
       throw new Error('Desteklenmeyen agent tipi');
   }

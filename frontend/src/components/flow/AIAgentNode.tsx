@@ -496,104 +496,39 @@ export default function AIAgentNode({ id, data }: AIAgentNodeProps) {
             {data.type === 'dataAnalyst' && (
               <>
                 <div className="space-y-2">
-                  <Label>Desteklenen Formatlar</Label>
-                  <div className="grid grid-cols-2 gap-2">
-                    {['csv', 'json', 'excel', 'sql'].map(format => (
-                      <div key={format} className="flex items-center space-x-2">
-                        <input
-                          type="checkbox"
-                          id={format}
-                          checked={(config as DataAnalystConfig).supportedFormats.includes(format as any)}
-                          onChange={(e) => {
-                            const currentFormats = [...(config as DataAnalystConfig).supportedFormats];
-                            if (e.target.checked) {
-                              if (!currentFormats.includes(format as any)) {
-                                currentFormats.push(format as any);
-                              }
-                            } else {
-                              const index = currentFormats.indexOf(format as any);
-                              if (index > -1) {
-                                currentFormats.splice(index, 1);
-                              }
-                            }
-                            updateConfig<DataAnalystConfig>({
-                              supportedFormats: currentFormats,
-                            });
-                          }}
-                          className="rounded border-gray-300"
-                        />
-                        <Label htmlFor={format}>{format.toUpperCase()}</Label>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Görselleştirme</Label>
-                  <div className="flex items-center space-x-2">
-                    <input
-                      type="checkbox"
-                      id="visualization"
-                      checked={(config as DataAnalystConfig).visualization.enabled}
-                      onChange={(e) => updateConfig<DataAnalystConfig>({
-                        visualization: {
-                          ...(config as DataAnalystConfig).visualization,
-                          enabled: e.target.checked,
-                        },
-                      })}
-                      className="rounded border-gray-300"
-                    />
-                    <Label htmlFor="visualization">Görselleştirmeyi Etkinleştir</Label>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Görselleştirme Kütüphaneleri</Label>
-                  <div className="grid grid-cols-1 gap-2">
-                    {['matplotlib', 'plotly', 'seaborn'].map(lib => (
-                      <div key={lib} className="flex items-center space-x-2">
-                        <input
-                          type="checkbox"
-                          id={lib}
-                          checked={(config as DataAnalystConfig).visualization.libraries.includes(lib as any)}
-                          onChange={(e) => {
-                            const currentLibs = [...(config as DataAnalystConfig).visualization.libraries];
-                            if (e.target.checked) {
-                              if (!currentLibs.includes(lib as any)) {
-                                currentLibs.push(lib as any);
-                              }
-                            } else {
-                              const index = currentLibs.indexOf(lib as any);
-                              if (index > -1) {
-                                currentLibs.splice(index, 1);
-                              }
-                            }
-                            updateConfig<DataAnalystConfig>({
-                              visualization: {
-                                ...(config as DataAnalystConfig).visualization,
-                                libraries: currentLibs,
-                              },
-                            });
-                          }}
-                          className="rounded border-gray-300"
-                        />
-                        <Label htmlFor={lib}>{lib}</Label>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="flex items-center space-x-2">
-                  <input
-                    type="checkbox"
-                    id="caching"
-                    checked={(config as DataAnalystConfig).caching}
-                    onChange={(e) => updateConfig<DataAnalystConfig>({
-                      caching: e.target.checked,
-                    })}
-                    className="rounded border-gray-300"
+                  <Label>Veri Dosyası</Label>
+                  <Input
+                    type="file"
+                    accept=".csv,.json,.xlsx,.xls"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0] || null;
+                      updateConfig<DataAnalystConfig>({
+                        file: file
+                      });
+                    }}
                   />
-                  <Label htmlFor="caching">Önbelleğe Alma</Label>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Grafik X Ekseni</Label>
+                  <Input
+                    value={(config as DataAnalystConfig).xAxis || ''}
+                    onChange={(e) => updateConfig<DataAnalystConfig>({
+                      xAxis: e.target.value
+                    })}
+                    placeholder="Örn: tarih, kategori, bölge"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Grafik Y Ekseni</Label>
+                  <Input
+                    value={(config as DataAnalystConfig).yAxis || ''}
+                    onChange={(e) => updateConfig<DataAnalystConfig>({
+                      yAxis: e.target.value
+                    })}
+                    placeholder="Örn: satış, miktar, kar"
+                  />
                 </div>
               </>
             )}
