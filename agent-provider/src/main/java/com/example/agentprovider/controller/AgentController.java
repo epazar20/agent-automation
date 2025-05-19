@@ -15,6 +15,9 @@ import com.example.agentprovider.model.TranslatorResponse;
 import com.example.agentprovider.model.DataAnalyserRequest;
 import com.example.agentprovider.model.DataAnalyserResponse;
 import com.example.agentprovider.service.DataAnalyserService;
+import com.example.agentprovider.model.ImageGeneratorRequest;
+import com.example.agentprovider.model.ImageGeneratorResponse;
+import com.example.agentprovider.service.ImageGeneratorService;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
@@ -38,17 +41,19 @@ public class AgentController {
     private final WebSearcherService webSearcherService;
     private final TranslatorService translatorService;
     private final DataAnalyserService dataAnalyserService;
+    private final ImageGeneratorService imageGeneratorService;
     private final ObjectMapper objectMapper;
     
     @Autowired
     public AgentController(YoutubeService youtubeService, WebScrapperService webScrapperService, 
                          WebSearcherService webSearcherService, TranslatorService translatorService,
-                         DataAnalyserService dataAnalyserService) {
+                         DataAnalyserService dataAnalyserService, ImageGeneratorService imageGeneratorService) {
         this.youtubeService = youtubeService;
         this.webScrapperService = webScrapperService;
         this.webSearcherService = webSearcherService;
         this.translatorService = translatorService;
         this.dataAnalyserService = dataAnalyserService;
+        this.imageGeneratorService = imageGeneratorService;
         
         this.objectMapper = new ObjectMapper()
             .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
@@ -121,5 +126,11 @@ public class AgentController {
             e.printStackTrace();
             return ResponseEntity.badRequest().build();
         }
+    }
+
+    @PostMapping("/image-generator")
+    public ResponseEntity<ImageGeneratorResponse> generateImage(@RequestBody ImageGeneratorRequest request) {
+        ImageGeneratorResponse response = imageGeneratorService.generateImage(request);
+        return ResponseEntity.ok(response);
     }
 } 
