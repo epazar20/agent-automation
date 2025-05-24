@@ -28,6 +28,7 @@
     <modules>
         <module>agent-provider</module>
         <module>ai-provider</module>
+        <module>mcp-provider</module>
     </modules>
 
     <dependencyManagement>
