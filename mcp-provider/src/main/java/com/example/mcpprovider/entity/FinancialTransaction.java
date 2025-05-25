@@ -6,12 +6,9 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
-import org.hibernate.annotations.JdbcTypeCode;
-import org.hibernate.type.SqlTypes;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.Map;
 
 @Entity
 @Table(name = "financial_transactions")
@@ -24,30 +21,39 @@ public class FinancialTransaction {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
     
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "action_type_id")
-    private FinanceActionType actionType;
+    @Column(name = "account_id")
+    private Long accountId;
     
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "customer_id")
     private Customer customer;
     
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "account_id")
-    private Account account;
+    @Column(name = "transaction_type")
+    private String transactionType;
+    
+    @Column(name = "category")
+    private String category;
+    
+    @Column(name = "direction")
+    private String direction;
     
     @Column(name = "amount", precision = 15, scale = 2)
     private BigDecimal amount;
     
+    @Column(name = "currency", length = 3)
+    private String currency;
+    
+    @Column(name = "description")
+    private String description;
+    
+    @Column(name = "counterparty_name")
+    private String counterpartyName;
+    
+    @Column(name = "counterparty_iban")
+    private String counterpartyIban;
+    
     @Column(name = "transaction_date")
-    private LocalDateTime transactionDate = LocalDateTime.now();
-    
-    @Column(name = "status", length = 20)
-    private String status = "completed";
-    
-    @JdbcTypeCode(SqlTypes.JSON)
-    @Column(name = "details", columnDefinition = "jsonb")
-    private Map<String, Object> details;
+    private LocalDateTime transactionDate;
     
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
@@ -56,4 +62,8 @@ public class FinancialTransaction {
     @UpdateTimestamp
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
+    
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "account_id", insertable = false, updatable = false)
+    private Account account;
 } 

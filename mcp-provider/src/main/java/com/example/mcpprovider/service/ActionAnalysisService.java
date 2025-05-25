@@ -8,7 +8,6 @@ import com.example.mcpprovider.dto.AiProviderResponse;
 import com.example.mcpprovider.dto.CustomerDto;
 import com.example.mcpprovider.enums.FinanceActionType;
 import com.example.mcpprovider.model.Customer;
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Autowired;

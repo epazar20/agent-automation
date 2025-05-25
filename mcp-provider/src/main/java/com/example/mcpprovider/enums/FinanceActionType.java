@@ -10,7 +10,7 @@ public enum FinanceActionType {
     GENERATE_STATEMENT(
         "Hesap ekstresi, işlem dökümü, bakiye raporu oluştur ve müşteriye ilet.",
         "Hesap ekstresini gönder lütfen, Ahmet'ten Veli'ye ait hesap hareketlerini istiyorum.",
-        "{\"senderName\":\"Ahmet\",\"recipientName\":\"Veli\",\"accountId\":\"123456\"}"
+        "{\"senderName\":\"Ahmet\",\"recipientName\":\"Veli\",\"accountId\":\"123456\",\"customertId\":\"123456\",\"startDate\":\"2025-05-01\",\"endDate\":\"2025-05-15\",\"direction\":\"out\",\"minAmount\":500,\"maxAmount\":2000,\"transactionType\":\"purchase\",\"category\":\"shopping\",\"descriptionContains\":\"Trendyol\",\"limit\":10,\"order\":\"desc\",\"currency\":\"TRY\"}"
     ),
     SEND_PAYMENT_REMINDER(
         "Geciken ödemeler için hatırlatma maili veya SMS gönder.",

@@ -2,7 +2,6 @@ package com.example.mcpprovider.service;
 
 import com.example.mcpprovider.dto.EmailAttachmentDto;
 import com.example.mcpprovider.dto.EmailDto;
-import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -15,7 +14,6 @@ import org.thymeleaf.context.Context;
 import org.thymeleaf.spring6.SpringTemplateEngine;
 
 import java.nio.charset.StandardCharsets;
-import java.util.Objects;
 import java.time.LocalDateTime;
 import java.util.Map;
 
