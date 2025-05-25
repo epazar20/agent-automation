@@ -5,6 +5,7 @@ import com.example.mcpprovider.dto.ActionAnalysisRequest;
 import com.example.mcpprovider.dto.ActionAnalysisResponse;
 import com.example.mcpprovider.dto.AiProviderRequest;
 import com.example.mcpprovider.dto.AiProviderResponse;
+import com.example.mcpprovider.dto.CustomerDto;
 import com.example.mcpprovider.enums.FinanceActionType;
 import com.example.mcpprovider.model.Customer;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -36,7 +37,22 @@ public class ActionAnalysisService {
             String enhancedContent = request.getContent();
             
             if (request.getCustomerNo() != null && !request.getCustomerNo().trim().isEmpty()) {
-                customer = customerService.getDummyCustomer(request.getCustomerNo());
+                // Try to find customer by ID first, then create a dummy if not found
+                CustomerDto customerDto = null;
+                try {
+                    Long customerId = Long.parseLong(request.getCustomerNo());
+                    customerDto = customerService.getCustomerById(customerId).orElse(null);
+                } catch (NumberFormatException e) {
+                    // If customerNo is not a number, try to find by name or create dummy
+                    customerDto = null;
+                }
+                
+                // Convert DTO to model or create dummy
+                if (customerDto != null) {
+                    customer = convertDtoToModel(customerDto);
+                } else {
+                    customer = createDummyCustomer(request.getCustomerNo());
+                }
                 
                 // Create customer JSON string
                 String customerJson = objectMapper.writeValueAsString(customer);
@@ -265,5 +281,22 @@ public class ActionAnalysisService {
         }
         
         return actions;
+    }
+    
+    private Customer createDummyCustomer(String customerNo) {
+        Customer customer = new Customer();
+        customer.setCustomerNo(customerNo);
+        customer.setName("Müşteri " + customerNo);
+        customer.setEmail(customerNo + "@example.com");
+        return customer;
+    }
+
+    private Customer convertDtoToModel(CustomerDto customerDto) {
+        Customer customer = new Customer();
+        customer.setCustomerNo(customerDto.getId().toString());
+        customer.setName(customerDto.getFirstName());
+        customer.setSurname(customerDto.getLastName());
+        customer.setEmail(customerDto.getEmail());
+        return customer;
     }
 }
