@@ -26,6 +26,7 @@ public class TransactionController {
     public ResponseEntity<List<TransactionResponseDto>> getTransactionStatement(
             @RequestParam(required = false) String actionType,
             @RequestParam(required = false) String accountId,
+            @RequestParam(required = false) String customerId,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startDate,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endDate,
             @RequestParam(required = false) String direction,
@@ -42,6 +43,7 @@ public class TransactionController {
         TransactionFilterDto filter = TransactionFilterDto.builder()
                 .actionType(actionType)
                 .accountId(accountId)
+                .customerId(customerId)
                 .startDate(startDate)
                 .endDate(endDate)
                 .direction(direction)
@@ -66,4 +68,4 @@ public class TransactionController {
         List<TransactionResponseDto> transactions = transactionService.getTransactions(filter);
         return ResponseEntity.ok(transactions);
     }
-} 
+}

@@ -15,6 +15,7 @@ import java.time.LocalDateTime;
 public class TransactionFilterDto {
     private String actionType;
     private String accountId;
+    private String customerId;
     private LocalDateTime startDate;
     private LocalDateTime endDate;
     private String direction;

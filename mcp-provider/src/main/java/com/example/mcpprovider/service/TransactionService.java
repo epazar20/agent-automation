@@ -2,6 +2,7 @@ package com.example.mcpprovider.service;
 
 import com.example.mcpprovider.dto.TransactionFilterDto;
 import com.example.mcpprovider.dto.TransactionResponseDto;
+import com.example.mcpprovider.dto.CustomerDto;
 import com.example.mcpprovider.entity.FinancialTransaction;
 import com.example.mcpprovider.repository.FinancialTransactionRepository;
 import com.example.mcpprovider.specification.TransactionSpecification;
@@ -93,6 +94,14 @@ public class TransactionService {
             .counterpartyName(transaction.getCounterpartyName())
             .counterpartyIban(transaction.getCounterpartyIban())
             .transactionDate(transaction.getTransactionDate())
+            .customer(transaction.getCustomer() != null ? CustomerDto.builder()
+                .id(transaction.getCustomer().getId())
+                .firstName(transaction.getCustomer().getFirstName())
+                .lastName(transaction.getCustomer().getLastName())
+                .email(transaction.getCustomer().getEmail())
+                .phone(transaction.getCustomer().getPhone())
+                .status(transaction.getCustomer().getStatus())
+                .build() : null)
             .build();
     }
 } 

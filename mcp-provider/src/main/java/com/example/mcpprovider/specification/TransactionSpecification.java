@@ -21,6 +21,12 @@ public class TransactionSpecification {
                     Long.parseLong(filter.getAccountId().replace("ACC-", ""))));
             }
 
+            // Customer ID filter
+            if (StringUtils.hasText(filter.getCustomerId())) {
+                predicates.add(criteriaBuilder.equal(root.get("customer").get("id"), 
+                    Long.parseLong(filter.getCustomerId())));
+            }
+
             // Date range filter
             if (filter.getStartDate() != null) {
                 predicates.add(criteriaBuilder.greaterThanOrEqualTo(
@@ -90,4 +96,4 @@ public class TransactionSpecification {
             return criteriaBuilder.and(predicates.toArray(new Predicate[0]));
         };
     }
-} 
+}
