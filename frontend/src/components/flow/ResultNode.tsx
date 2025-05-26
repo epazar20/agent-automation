@@ -8,7 +8,7 @@ import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useDispatch, useSelector } from 'react-redux';
 import { updateNode, removeNode } from '@/store/slices/flowSlice';
-import { AgentType, ResultConfig } from '@/store/types';
+import { AgentType, ResultConfig, NodeType } from '@/store/types';
 import { toast } from 'sonner';
 import { defaultAgentConfigs } from '@/store/defaultConfigs';
 import { RootState } from '@/store';
@@ -22,6 +22,7 @@ type ResultNodeProps = {
   data: {
     type: AgentType;
     config: ResultConfig;
+    nodeType: NodeType;
   };
 };
 
@@ -39,9 +40,11 @@ export default function ResultNode({ id, data }: ResultNodeProps) {
     }
   }, [data.config]);
 
-  // Bağlı olan kaynak node'un sonucunu al
+  // Get this ResultNode's own execution result
+  const result = executionResults[id] || null;
+
+  // Also get source edge for reference if needed
   const sourceEdge = edges.find(edge => edge.target === id);
-  const result = sourceEdge ? executionResults[sourceEdge.source] : null;
 
   // JSON preview and dialog logic
   const jsonString = result && typeof result.output !== 'undefined' ? JSON.stringify(result.output, null, 2) : '';
@@ -75,6 +78,7 @@ export default function ResultNode({ id, data }: ResultNodeProps) {
         data: {
           ...data,
           config,
+          nodeType: data.nodeType,
         },
       },
     }));

@@ -9,13 +9,12 @@ export type AgentType =
   | 'translator'
   | 'youtubeSummarizer'
   | 'researchAgent'
-  | 'result';
-
-// MCP Tipleri
-export type McpType = 'supabase' | 'github' | 'firecrawl';
+  | 'supabase'
+  | 'result'
+  | 'conditional';
 
 // LLM Model Tipleri
-export type LLMType = 'openai' | 'gemini' | 'anthropic' | 'llama2' | 'huggingface';
+export type LLMType = 'openai' | 'huggingface' | 'anthropic' | 'google';
 
 // Temel Model Konfigürasyonları
 interface BaseModelConfig {
@@ -57,10 +56,10 @@ export interface HuggingFaceConfig extends BaseModelConfig {
 export type ModelConfig = OpenAIConfig | GeminiConfig | AnthropicConfig | LlamaConfig | HuggingFaceConfig;
 
 // Agent Konfigürasyonları
-interface BaseAgentConfig {
+export interface BaseAgentConfig {
   name: string;
   description: string;
-  modelConfig: ModelConfig;
+  modelConfig?: ModelConfig;
   content?: string;
   specialPrompt?: string;
 }
@@ -145,6 +144,36 @@ export interface ResultConfig extends BaseAgentConfig {
   maxHistoryLength?: number;
 }
 
+export interface SupabaseConfig extends BaseAgentConfig {
+  apiUrl: string;
+  apiKey: string;
+  useAnon: boolean;
+  capabilities: {
+    database: boolean;
+    auth: boolean;
+    storage: boolean;
+    functions: boolean;
+  };
+}
+
+export interface ConditionalConfig extends BaseAgentConfig {
+  conditions: Array<{
+    id: string;
+    value1: {
+      type: 'variable' | 'static';
+      value: string; // variable name or static value
+    };
+    operator: 'equals' | 'notEquals' | 'contains' | 'notContains' | 'greaterThan' | 'lessThan' | 'greaterThanOrEqual' | 'lessThanOrEqual' | 'startsWith' | 'endsWith' | 'isEmpty' | 'isNotEmpty' | 'like' | 'notLike';
+    value2: {
+      type: 'variable' | 'static';
+      value: string; // variable name or static value
+    };
+  }>;
+  combineOperator: 'AND' | 'OR';
+  truePathColor: string;
+  falsePathColor: string;
+}
+
 export type AgentConfig =
   | WebScraperConfig
   | WebSearcherConfig
@@ -155,15 +184,17 @@ export type AgentConfig =
   | TranslatorConfig
   | YoutubeSummarizerConfig
   | ResearchAgentConfig
-  | ResultConfig;
+  | ResultConfig
+  | SupabaseConfig
+  | ConditionalConfig;
 
 // Node Types
-export type NodeType = 'aiAgent' | 'resultNode' | 'mcpNode';
+export type NodeType = 'general' | 'business';
 
 // Agent Node
 export interface AgentNode {
   id: string;
-  type: NodeType;
+  type: 'aiAgent' | 'resultNode' | 'conditionalNode';
   position: {
     x: number;
     y: number;
@@ -171,6 +202,7 @@ export interface AgentNode {
   data: {
     type: AgentType;
     config: AgentConfig;
+    nodeType: NodeType;
   };
 }
 
@@ -181,40 +213,24 @@ export interface FlowConnection {
   target: string;
   sourceHandle?: string;
   targetHandle?: string;
-  data?: {
-    transformations?: string[];
-  };
 }
 
 // Execution Results
-export type ExecutionResults = {
-  [nodeId: string]: {
-    status: 'idle' | 'running' | 'completed' | 'error';
-    output?: any;
-    error?: string;
-    executionTime?: number;
-    tokenUsage?: {
-      prompt: number;
-      completion: number;
-      total: number;
-    };
-    resourceUsage?: {
-      memory: number;
-      cpu: number;
-      network: {
-        sent: number;
-        received: number;
-      };
-    };
-  };
-};
+export interface ExecutionResult {
+  status: 'idle' | 'running' | 'completed' | 'error';
+  output?: any;
+  error?: string;
+  conditionResult?: boolean;
+}
+
+export interface ExecutionResults {
+  [nodeId: string]: ExecutionResult;
+}
 
 // Akış Durumu
 export interface FlowState {
   nodes: AgentNode[];
   edges: FlowConnection[];
-  selectedNodeId: string | null;
-  isRunning: boolean;
   executionResults: ExecutionResults;
 }
 

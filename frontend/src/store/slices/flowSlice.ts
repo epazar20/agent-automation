@@ -72,6 +72,7 @@ const flowSlice = createSlice({
         completion: number;
         total: number;
       };
+      conditionResult?: boolean;
     }>) => {
       state.executionResults[action.payload.nodeId] = {
         status: action.payload.status,
@@ -79,6 +80,7 @@ const flowSlice = createSlice({
         error: action.payload.error,
         executionTime: action.payload.executionTime,
         tokenUsage: action.payload.tokenUsage,
+        conditionResult: action.payload.conditionResult,
       };
     },
 

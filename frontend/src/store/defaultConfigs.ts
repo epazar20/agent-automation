@@ -1,4 +1,4 @@
-import { AgentType, AgentConfig, LLMType, ModelConfig, McpType, McpConfig } from './types';
+import { AgentType, AgentConfig, LLMType, ModelConfig } from './types';
 
 export const defaultModelConfig: Record<LLMType, Partial<ModelConfig>> = {
   huggingface: {
@@ -153,39 +153,40 @@ export const defaultAgentConfigs: Record<AgentType, Partial<AgentConfig>> = {
     includeSourceLinks: true,
     format: 'markdown',
   },
-};
-
-export const defaultMcpConfigs: Record<McpType, Partial<McpConfig>> = {
   supabase: {
-    name: 'Supabase',
-    description: 'Supabase veritabanı ve backend entegrasyonu',
-    toolName: 'mcp_supabase',
+    name: 'Supabase Agent',
+    description: 'Veritabanı ve backend işlemleri',
+    modelConfig: defaultModelConfig.openai,
+    apiUrl: '',
+    apiKey: '',
+    useAnon: false,
     capabilities: {
       database: true,
-      auth: true,
-      storage: true,
-      functions: true,
+      auth: false,
+      storage: false,
+      functions: false,
     },
   },
-  github: {
-    name: 'GitHub',
-    description: 'GitHub deposu ve entegrasyon yönetimi',
-    toolName: 'mcp_github',
-    capabilities: {
-      repositories: true,
-      issues: true,
-      pullRequests: true,
-    },
-  },
-  firecrawl: {
-    name: 'Firecrawl',
-    description: 'Web scraping ve içerik analizi',
-    toolName: 'mcp_firecrawl',
-    capabilities: {
-      scraping: true,
-      search: true,
-      crawling: true,
-    },
+  conditional: {
+    name: 'Koşul Kontrolü',
+    description: 'Önceki node çıktısına göre akışı yönlendirir',
+    conditions: [
+      {
+        id: '1',
+        value1: {
+          type: 'variable',
+          value: 'result'
+        },
+        operator: 'equals',
+        value2: {
+          type: 'static',
+          value: ''
+        }
+      }
+    ],
+    combineOperator: 'AND',
+    truePathColor: '#22c55e',  // Yeşil
+    falsePathColor: '#ef4444', // Kırmızı
   },
 };
 
@@ -197,12 +198,4 @@ export function createDefaultAgentConfig(type: AgentType, llmType: LLMType = 'op
     ...baseConfig,
     modelConfig: modelConfig as ModelConfig,
   } as AgentConfig;
-}
-
-export function createDefaultMcpConfig(type: McpType): McpConfig {
-  const baseConfig = defaultMcpConfigs[type];
-  
-  return {
-    ...baseConfig,
-  } as McpConfig;
 } 

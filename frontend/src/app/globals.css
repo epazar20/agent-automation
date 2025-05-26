@@ -75,6 +75,10 @@ body {
   @apply dark:bg-card dark:text-foreground;
 }
 
+.react-flow {
+  @apply dark:bg-background;
+}
+
 .react-flow__controls {
   @apply dark:bg-card dark:text-foreground dark:border-border !important;
   box-shadow: 0 0 2px 1px rgba(0, 0, 0, 0.08);

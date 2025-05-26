@@ -34,7 +34,9 @@ import {
   ImageGeneratorConfig,
   TextGeneratorConfig,
   TranslatorConfig,
-  ModelConfig
+  ModelConfig,
+  BaseAgentConfig,
+  NodeType
 } from '@/store/types';
 import { toast } from 'sonner';
 import { defaultAgentConfigs, createDefaultAgentConfig } from '@/store/defaultConfigs';
@@ -46,8 +48,21 @@ type AIAgentNodeProps = {
   data: {
     type: AgentType;
     config: AgentConfig;
+    nodeType: NodeType;
   };
 };
+
+export interface SupabaseConfig extends BaseAgentConfig {
+  apiUrl: string;
+  apiKey: string;
+  useAnon: boolean;
+  capabilities: {
+    database: boolean;
+    auth: boolean;
+    storage: boolean;
+    functions: boolean;
+  };
+}
 
 export default function AIAgentNode({ id, data }: AIAgentNodeProps) {
   const dispatch = useDispatch();
@@ -109,6 +124,18 @@ export default function AIAgentNode({ id, data }: AIAgentNodeProps) {
     setConfig(updatedConfig as AgentConfig);
   };
 
+  const updateSupabaseConfig = (updates: Partial<SupabaseConfig>) => {
+    const currentConfig = config as unknown as SupabaseConfig;
+    setConfig({
+      ...currentConfig,
+      ...updates,
+      capabilities: {
+        ...currentConfig.capabilities,
+        ...(updates.capabilities || {}),
+      },
+    });
+  };
+
   const getNodeColor = () => {
     // Normal agent node için standart renk seçimi
     switch (data.type) {
@@ -130,6 +157,8 @@ export default function AIAgentNode({ id, data }: AIAgentNodeProps) {
         return 'bg-red-100 dark:bg-red-900';
       case 'researchAgent':
         return 'bg-teal-100 dark:bg-teal-900';
+      case 'supabase':
+        return 'bg-pink-100 dark:bg-pink-900';
       default:
         return 'bg-gray-100 dark:bg-gray-800';
     }
@@ -156,6 +185,8 @@ export default function AIAgentNode({ id, data }: AIAgentNodeProps) {
         return '📺';
       case 'researchAgent':
         return '🔍';
+      case 'supabase':
+        return '💾';
       default:
         return '?';
     }
@@ -168,6 +199,7 @@ export default function AIAgentNode({ id, data }: AIAgentNodeProps) {
         data: {
           type: data.type,
           config,
+          nodeType: data.nodeType,
         },
       },
     }));
@@ -310,10 +342,99 @@ export default function AIAgentNode({ id, data }: AIAgentNodeProps) {
             {/* Model yapılandırması - tüm agent tipleri için ortak */}
             {data.type !== 'webSearcher' && (
               <ModelConfigForm
-                modelConfig={config.modelConfig}
+                modelConfig={(config.modelConfig || defaultAgentConfigs[data.type].modelConfig || createDefaultAgentConfig(data.type).modelConfig) as ModelConfig}
                 onChange={updateModelConfig}
                 agentType={data.type}
               />
+            )}
+
+            {/* Supabase yapılandırması */}
+            {data.type === 'supabase' && (
+              <>
+                <div className="space-y-2">
+                  <Label>API URL</Label>
+                  <Input
+                    value={(config as unknown as SupabaseConfig).apiUrl}
+                    onChange={(e) => updateSupabaseConfig({ apiUrl: e.target.value })}
+                    placeholder="Supabase API URL"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>API Key</Label>
+                  <Input
+                    type="password"
+                    value={(config as unknown as SupabaseConfig).apiKey}
+                    onChange={(e) => updateSupabaseConfig({ apiKey: e.target.value })}
+                    placeholder="Supabase API Key"
+                  />
+                </div>
+
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id="useAnon"
+                    checked={(config as unknown as SupabaseConfig).useAnon}
+                    onChange={(e) => updateSupabaseConfig({ useAnon: e.target.checked })}
+                    className="rounded border-gray-300"
+                  />
+                  <Label htmlFor="useAnon">Anonim Anahtar Kullan</Label>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Yetenekler</Label>
+                  <div className="space-y-2">
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        id="database"
+                        checked={(config as unknown as SupabaseConfig).capabilities?.database}
+                        onChange={(e) => updateSupabaseConfig({
+                          capabilities: { ...(config as unknown as SupabaseConfig).capabilities, database: e.target.checked }
+                        })}
+                        className="rounded border-gray-300"
+                      />
+                      <Label htmlFor="database">Veritabanı</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        id="auth"
+                        checked={(config as unknown as SupabaseConfig).capabilities?.auth}
+                        onChange={(e) => updateSupabaseConfig({
+                          capabilities: { ...(config as unknown as SupabaseConfig).capabilities, auth: e.target.checked }
+                        })}
+                        className="rounded border-gray-300"
+                      />
+                      <Label htmlFor="auth">Kimlik Doğrulama</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        id="storage"
+                        checked={(config as unknown as SupabaseConfig).capabilities?.storage}
+                        onChange={(e) => updateSupabaseConfig({
+                          capabilities: { ...(config as unknown as SupabaseConfig).capabilities, storage: e.target.checked }
+                        })}
+                        className="rounded border-gray-300"
+                      />
+                      <Label htmlFor="storage">Depolama</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        id="functions"
+                        checked={(config as unknown as SupabaseConfig).capabilities?.functions}
+                        onChange={(e) => updateSupabaseConfig({
+                          capabilities: { ...(config as unknown as SupabaseConfig).capabilities, functions: e.target.checked }
+                        })}
+                        className="rounded border-gray-300"
+                      />
+                      <Label htmlFor="functions">Edge Functions</Label>
+                    </div>
+                  </div>
+                </div>
+              </>
             )}
 
             {/* Content field for all agent types */}
@@ -339,16 +460,12 @@ export default function AIAgentNode({ id, data }: AIAgentNodeProps) {
                     placeholder="YouTube video URL'sini girin"
                   />
                 </div>
-
-
-
               </>
             )}
 
             {/* Web Searcher yapılandırması */}
             {data.type === 'webSearcher' && (
               <>
-
                 <div className="space-y-2">
                   <Label>Sonuç Sayısı</Label>
                   <Input

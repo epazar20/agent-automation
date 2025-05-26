@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 import ReactFlow, {
   MiniMap,
   Controls,
@@ -13,14 +13,14 @@ import ReactFlow, {
   NodeChange,
 } from 'reactflow';
 import { useDispatch, useSelector } from 'react-redux';
-import { RootState } from '@/store';
+import { RootState } from '@/store/types';
 import { addNode, updateNodePosition, addEdge, removeNode, removeEdge, updateExecutionResult } from '@/store/slices/flowSlice';
-import { AgentType, AgentNode, NodeType, FlowConnection, McpType, ExecutionResults, AgentConfig } from '@/store/types';
-import { createDefaultAgentConfig, createDefaultMcpConfig } from '@/store/defaultConfigs';
+import { AgentType, AgentNode, NodeType, FlowConnection, ExecutionResults, AgentConfig } from '@/store/types';
+import { createDefaultAgentConfig, defaultAgentConfigs } from '@/store/defaultConfigs';
 import { executeAgent } from '@/api/agents';
 import AIAgentNode from './AIAgentNode';
-import MCPAgentNode from './MCPAgentNode';
 import ResultNode from './ResultNode';
+import ConditionalNode from './ConditionalNode';
 import { Button } from "@/components/ui/button";
 import { PlayIcon, GearIcon, PlusIcon } from "@radix-ui/react-icons";
 import { toast } from 'sonner';
@@ -28,48 +28,107 @@ import 'reactflow/dist/style.css';
 
 const nodeTypes = {
   aiAgent: AIAgentNode,
-  mcpNode: MCPAgentNode,
   resultNode: ResultNode,
+  conditionalNode: ConditionalNode,
 };
 
-// Edge stil fonksiyonu
-const getEdgeStyle = (edge: Edge, executionResults: ExecutionResults) => {
-  const sourceResult = executionResults[edge.source];
+// Helper function to evaluate conditional node - moved outside component
+const evaluateConditionalNode = (config: any, data: any) => {
+  console.log('🔍 Evaluating ConditionalNode:', { config, data });
   
-  if (!sourceResult) {
-    return {
-      stroke: '#64748b', // Gri (default)
-      strokeWidth: 2,
-      transition: 'stroke 0.3s ease',
-    };
+  if (!config.conditions || config.conditions.length === 0) {
+    console.log('❌ No conditions found');
+    return false;
   }
 
-  switch (sourceResult.status) {
-    case 'running':
-      return {
-        stroke: '#f97316', // Turuncu
-        strokeWidth: 2,
-        animation: 'flowEdgePulse 1.5s infinite',
-        transition: 'stroke 0.3s ease',
-      };
-    case 'completed':
-      return {
-        stroke: '#22c55e', // Yeşil
-        strokeWidth: 2,
-        transition: 'stroke 0.3s ease',
-      };
-    case 'error':
-      return {
-        stroke: '#ef4444', // Kırmızı
-        strokeWidth: 2,
-        transition: 'stroke 0.3s ease',
-      };
-    default:
-      return {
-        stroke: '#64748b', // Gri
-        strokeWidth: 2,
-        transition: 'stroke 0.3s ease',
-      };
+  const getValue = (valueConfig: { type: 'variable' | 'static'; value: string }, inputData: any) => {
+    if (valueConfig.type === 'variable') {
+      // Navigate through nested object properties
+      const keys = valueConfig.value.split('.');
+      let result = inputData;
+      for (const key of keys) {
+        if (result && typeof result === 'object' && key in result) {
+          result = result[key];
+        } else {
+          return undefined;
+        }
+      }
+      return result;
+    }
+    return valueConfig.value;
+  };
+
+  const evaluateCondition = (condition: any, inputData: any) => {
+    const value1 = getValue(condition.value1, inputData);
+    const value2 = getValue(condition.value2, inputData);
+
+    console.log('🔍 Condition Evaluation:', {
+      value1,
+      value2,
+      operator: condition.operator,
+      value1Type: typeof value1,
+      value2Type: typeof value2
+    });
+
+    switch (condition.operator) {
+      case 'equals':
+        // Handle boolean comparison specially
+        if (typeof value1 === 'boolean' || typeof value2 === 'boolean' || 
+            value1 === 'true' || value1 === 'false' || 
+            value2 === 'true' || value2 === 'false') {
+          const bool1 = value1 === true || value1 === 'true';
+          const bool2 = value2 === true || value2 === 'true';
+          console.log('🔍 Boolean Comparison:', { value1, value2, bool1, bool2, result: bool1 === bool2 });
+          return bool1 === bool2;
+        }
+        return value1 === value2;
+      case 'notEquals':
+        // Handle boolean comparison specially
+        if (typeof value1 === 'boolean' || typeof value2 === 'boolean' || 
+            value1 === 'true' || value1 === 'false' || 
+            value2 === 'true' || value2 === 'false') {
+          const bool1 = value1 === true || value1 === 'true';
+          const bool2 = value2 === true || value2 === 'true';
+          return bool1 !== bool2;
+        }
+        return value1 !== value2;
+      case 'contains':
+        return String(value1).includes(String(value2));
+      case 'notContains':
+        return !String(value1).includes(String(value2));
+      case 'greaterThan':
+        return Number(value1) > Number(value2);
+      case 'lessThan':
+        return Number(value1) < Number(value2);
+      case 'greaterThanOrEqual':
+        return Number(value1) >= Number(value2);
+      case 'lessThanOrEqual':
+        return Number(value1) <= Number(value2);
+      case 'startsWith':
+        return String(value1).startsWith(String(value2));
+      case 'endsWith':
+        return String(value1).endsWith(String(value2));
+      case 'isEmpty':
+        return !value1 || value1 === '' || (Array.isArray(value1) && value1.length === 0);
+      case 'isNotEmpty':
+        return value1 && value1 !== '' && (!Array.isArray(value1) || value1.length > 0);
+      case 'like':
+        const likePattern = String(value2).replace(/%/g, '.*');
+        return new RegExp(likePattern, 'i').test(String(value1));
+      case 'notLike':
+        const notLikePattern = String(value2).replace(/%/g, '.*');
+        return !new RegExp(notLikePattern, 'i').test(String(value1));
+      default:
+        return false;
+    }
+  };
+
+  const results = config.conditions.map((condition: any) => evaluateCondition(condition, data));
+  
+  if (config.combineOperator === 'AND') {
+    return results.every((result: boolean) => result);
+  } else {
+    return results.some((result: boolean) => result);
   }
 };
 
@@ -77,6 +136,23 @@ function Flow() {
   const dispatch = useDispatch();
   const { nodes, edges, executionResults } = useSelector((state: RootState) => state.flow);
   const { project } = useReactFlow();
+
+  // Cache conditional evaluation results to prevent multiple evaluations
+  const conditionalResults = useMemo(() => {
+    const cache = new Map();
+    
+    nodes.forEach(node => {
+      if (node.data.type === 'conditional') {
+        const result = executionResults[node.id];
+        if (result?.status === 'completed' && result.output) {
+          const conditionResult = evaluateConditionalNode(node.data.config, result.output);
+          cache.set(node.id, conditionResult);
+        }
+      }
+    });
+    
+    return cache;
+  }, [nodes, executionResults]);
 
   const onNodesChange = useCallback((changes: NodeChange[]) => {
     changes.forEach((change) => {
@@ -130,9 +206,7 @@ function Flow() {
       event.preventDefault();
 
       const agentType = event.dataTransfer.getData('application/reactflow') as AgentType;
-      const mcpType = event.dataTransfer.getData('application/reactflow-mcp') as McpType;
-      
-      if (!agentType && !mcpType) return;
+      if (!agentType) return;
 
       const reactFlowBounds = document.querySelector('.react-flow')?.getBoundingClientRect();
       if (!reactFlowBounds) return;
@@ -142,33 +216,19 @@ function Flow() {
         y: event.clientY - reactFlowBounds.top,
       });
 
-      if (agentType) {
-        const newNode: AgentNode = {
-          id: `${Date.now()}`,
-          type: agentType === 'result' ? 'resultNode' : 'aiAgent',
-          position,
-          data: {
-            type: agentType,
-            config: createDefaultAgentConfig(agentType),
-          },
-        };
+      const newNode: AgentNode = {
+        id: `${Date.now()}`,
+        type: agentType === 'conditional' ? 'conditionalNode' : agentType === 'result' ? 'resultNode' : 'aiAgent',
+        position,
+        data: {
+          type: agentType,
+          config: createDefaultAgentConfig(agentType),
+          nodeType: agentType === 'supabase' ? 'business' : 'general',
+        },
+      };
 
-        dispatch(addNode(newNode));
-      } else if (mcpType) {
-        // MCP Node oluştur
-        const newNode: AgentNode = {
-          id: `mcp-${Date.now()}`,
-          type: 'mcpNode', // Yeni eklenen mcpNode tipini kullan
-          position,
-          data: {
-            type: 'webScraper', // Placeholder, ilerde MCP tipi olarak değiştirilecek
-            config: createDefaultMcpConfig(mcpType) as unknown as AgentConfig,
-          },
-        };
-
-        dispatch(addNode(newNode));
-        toast.success(`${mcpType.toUpperCase()} MCP Eklendi`);
-      }
+      dispatch(addNode(newNode));
+      toast.success(`${defaultAgentConfigs[agentType].name} eklendi`);
     },
     [project, dispatch],
   );
@@ -180,32 +240,165 @@ function Flow() {
 
   const handleExecute = async () => {
     try {
-      // Find all agent nodes (excluding result nodes)
+      // Find all nodes (including result nodes for conditional handling)
+      const allNodes = nodes;
       const agentNodes = nodes.filter((node: Node) => node.type !== 'resultNode');
       
       // Get execution order by following connections
       const executionOrder = getExecutionOrder(agentNodes, edges);
       
+      console.log('🚀 Execution Order:', executionOrder.map(n => ({ id: n.id, type: n.data.type })));
+      
       // Create a map to store results
       const resultMap = new Map();
       
+      // Clear all ResultNodes at the start
+      const resultNodes = nodes.filter((node: Node) => node.type === 'resultNode');
+      for (const resultNode of resultNodes) {
+        dispatch(updateExecutionResult({
+          nodeId: resultNode.id,
+          status: 'idle',
+          output: null,
+        }));
+        console.log(`🧹 Cleared ResultNode: ${resultNode.id}`);
+      }
+      
+      // First, handle all ResultNodes connected to ConditionalNodes
+      for (const resultNode of resultNodes) {
+        const incomingEdges = edges.filter(edge => edge.target === resultNode.id);
+        
+        for (const edge of incomingEdges) {
+          const sourceNode = nodes.find(n => n.id === edge.source);
+          if (sourceNode?.data.type === 'conditional') {
+            // This ResultNode is connected to a ConditionalNode
+            // We'll handle it after the ConditionalNode executes
+            console.log(`📋 ResultNode ${resultNode.id} connected to ConditionalNode ${sourceNode.id} via ${edge.sourceHandle} handle`);
+          }
+        }
+      }
+      
       for (const node of executionOrder) {
-        // Update node status to 'running'
+        console.log(`🔄 Executing node: ${node.id} (${node.data.type})`);
+        
+        // Get outputs from previous nodes using the result map FIRST
+        const inputs = [];
+        const incomingEdges = edges.filter(edge => edge.target === node.id);
+        
+        for (const edge of incomingEdges) {
+          const sourceResult = resultMap.get(edge.source);
+          if (sourceResult?.status === 'completed' && sourceResult.output) {
+            // Check if the source is a conditional node
+            const sourceNode = nodes.find(n => n.id === edge.source);
+            if (sourceNode?.data.type === 'conditional') {
+              // For conditional nodes, only add input if this edge should receive data
+              const conditionalConfig = sourceNode.data.config;
+              const conditionResult = evaluateConditionalNode(conditionalConfig, sourceResult.output);
+              
+              console.log('🔍 ConditionalNode Routing:', {
+                nodeId: node.id,
+                sourceNodeId: edge.source,
+                edgeHandle: edge.sourceHandle,
+                conditionResult,
+              });
+              
+              const shouldReceiveData = (edge.sourceHandle === 'true' && conditionResult) || 
+                                      (edge.sourceHandle === 'false' && !conditionResult);
+              
+              if (shouldReceiveData) {
+                inputs.push(sourceResult.output);
+              }
+            } else {
+              // For non-conditional nodes, always add the input
+              inputs.push(sourceResult.output);
+            }
+          }
+        }
+        
+        // Skip execution if this node has incoming conditional edges but no valid inputs
+        const hasConditionalInputs = incomingEdges.some(edge => {
+          const sourceNode = nodes.find(n => n.id === edge.source);
+          return sourceNode?.data.type === 'conditional';
+        });
+        
+        if (hasConditionalInputs && inputs.length === 0) {
+          console.log(`⏭️ Skipping node ${node.id} - no valid conditional inputs`);
+          // Set status to idle instead of running
+          dispatch(updateExecutionResult({
+            nodeId: node.id,
+            status: 'idle',
+          }));
+          continue;
+        }
+        
+        // Only set to running if we're actually going to execute
         dispatch(updateExecutionResult({
           nodeId: node.id,
           status: 'running',
         }));
 
         try {
-          // Get outputs from previous nodes using the result map
-          const inputs = [];
-          const incomingEdges = edges.filter(edge => edge.target === node.id);
-          
-          for (const edge of incomingEdges) {
-            const sourceResult = resultMap.get(edge.source);
-            if (sourceResult?.status === 'completed' && sourceResult.output) {
-              inputs.push(sourceResult.output);
+          // Handle ConditionalNode specially
+          if (node.data.type === 'conditional') {
+            // For conditional nodes, just pass through the input data
+            const inputData = inputs.length > 0 ? inputs[0] : null;
+            
+            // Handle ResultNodes connected to this ConditionalNode
+            const connectedResultNodes = edges
+              .filter((edge: Edge) => edge.source === node.id)
+              .map((edge: Edge) => ({ 
+                node: nodes.find((n: Node) => n.id === edge.target),
+                edge: edge
+              }))
+              .filter((item) => item.node?.type === 'resultNode');
+
+            console.log(`🔄 ConditionalNode ${node.id} has ${connectedResultNodes.length} connected ResultNodes`);
+
+            const conditionalConfig = node.data.config;
+            const conditionResult = evaluateConditionalNode(conditionalConfig, inputData);
+
+            console.log(`🎯 ConditionalNode ${node.id} evaluation result: ${conditionResult}`);
+
+            // Store the result in our map with condition result
+            resultMap.set(node.id, {
+              status: 'completed',
+              output: inputData,
+              conditionResult: conditionResult
+            });
+
+            // Update Redux state with condition result
+            dispatch(updateExecutionResult({
+              nodeId: node.id,
+              status: 'completed',
+              output: inputData,
+              conditionResult: conditionResult
+            }));
+
+            // Update all connected ResultNodes based on condition result
+            for (const { node: resultNode, edge } of connectedResultNodes) {
+              if (resultNode) {
+                const shouldRoute = (edge.sourceHandle === 'true' && conditionResult) || 
+                                  (edge.sourceHandle === 'false' && !conditionResult);
+                
+                console.log(`📋 ResultNode ${resultNode.id}: ${shouldRoute ? 'Activated' : 'Deactivated'} (${edge.sourceHandle} handle)`);
+
+                if (shouldRoute) {
+                  dispatch(updateExecutionResult({
+                    nodeId: resultNode.id,
+                    status: 'completed',
+                    output: inputData,
+                  }));
+                } else {
+                  // Explicitly set to idle with null output for inactive paths
+                  dispatch(updateExecutionResult({
+                    nodeId: resultNode.id,
+                    status: 'idle',
+                    output: null,
+                  }));
+                }
+              }
             }
+            
+            continue; // Skip normal execution for conditional nodes
           }
           
           // Prepare configuration with content from previous nodes
@@ -252,11 +445,26 @@ function Flow() {
 
           for (const resultNode of connectedResults) {
             if (resultNode) {
-              dispatch(updateExecutionResult({
-                nodeId: resultNode.id,
-                status: 'completed',
-                output: result,
-              }));
+              // Check if this ResultNode is connected to a ConditionalNode
+              const hasConditionalSource = edges.some(edge => {
+                if (edge.target === resultNode.id) {
+                  const sourceNode = nodes.find(n => n.id === edge.source);
+                  return sourceNode?.data.type === 'conditional';
+                }
+                return false;
+              });
+
+              if (!hasConditionalSource) {
+                // Only update ResultNodes that are NOT connected to ConditionalNodes
+                console.log(`📋 Updating non-conditional ResultNode: ${resultNode.id}`);
+                dispatch(updateExecutionResult({
+                  nodeId: resultNode.id,
+                  status: 'completed',
+                  output: result,
+                }));
+              } else {
+                console.log(`⏭️ Skipping conditional ResultNode update: ${resultNode.id}`);
+              }
             }
           }
 
@@ -312,10 +520,77 @@ function Flow() {
     return order;
   };
 
+  // Edge stil fonksiyonu - optimized to use cache
+  const getEdgeStyle = useCallback((edge: Edge) => {
+    const sourceResult = executionResults[edge.source];
+    
+    // Check if source is a conditional node and handle special styling
+    const sourceNode = nodes.find(n => n.id === edge.source);
+    if (sourceNode?.data?.type === 'conditional' && sourceResult?.status === 'completed') {
+      const conditionResult = conditionalResults.get(edge.source);
+      
+      if (conditionResult !== undefined) {
+        const isActiveEdge = (edge.sourceHandle === 'true' && conditionResult) || 
+                            (edge.sourceHandle === 'false' && !conditionResult);
+        
+        if (isActiveEdge) {
+          return {
+            stroke: '#22c55e', // Yeşil - aktif edge
+            strokeWidth: 3,
+            transition: 'stroke 0.3s ease',
+          };
+        } else {
+          return {
+            stroke: '#64748b', // Gri - inaktif edge
+            strokeWidth: 1,
+            opacity: 0.3,
+            transition: 'stroke 0.3s ease',
+          };
+        }
+      }
+    }
+    
+    if (!sourceResult) {
+      return {
+        stroke: '#64748b', // Gri (default)
+        strokeWidth: 2,
+        transition: 'stroke 0.3s ease',
+      };
+    }
+
+    switch (sourceResult.status) {
+      case 'running':
+        return {
+          stroke: '#f97316', // Turuncu
+          strokeWidth: 2,
+          animation: 'flowEdgePulse 1.5s infinite',
+          transition: 'stroke 0.3s ease',
+        };
+      case 'completed':
+        return {
+          stroke: '#22c55e', // Yeşil
+          strokeWidth: 2,
+          transition: 'stroke 0.3s ease',
+        };
+      case 'error':
+        return {
+          stroke: '#ef4444', // Kırmızı
+          strokeWidth: 2,
+          transition: 'stroke 0.3s ease',
+        };
+      default:
+        return {
+          stroke: '#64748b', // Gri
+          strokeWidth: 2,
+          transition: 'stroke 0.3s ease',
+        };
+    }
+  }, [executionResults, nodes, conditionalResults]);
+
   // Edge'leri duruma göre güncelle
   const styledEdges = edges.map((edge: Edge) => ({
     ...edge,
-    style: getEdgeStyle(edge, executionResults),
+    style: getEdgeStyle(edge),
     animated: executionResults[edge.source]?.status === 'running',
     type: 'smoothstep',
   }));
@@ -351,7 +626,7 @@ function Flow() {
       </div>
 
       {/* Flow Alanı */}
-      <div style={{ height: 'calc(100vh - 48px)' }}>
+      <div className="flex-1">
         <ReactFlow
           nodes={nodes}
           edges={styledEdges}
@@ -363,7 +638,7 @@ function Flow() {
           onDragOver={onDragOver}
           nodeTypes={nodeTypes}
           fitView
-          className="dark:bg-background"
+          className="h-full"
           deleteKeyCode={['Backspace', 'Delete']}
           multiSelectionKeyCode={['Control', 'Meta']}
           selectionKeyCode={['Shift']}
@@ -374,9 +649,9 @@ function Flow() {
             style: { strokeWidth: 2 },
           }}
         >
-          <Controls className="dark:bg-background dark:text-foreground dark:border-border" />
-          <MiniMap className="dark:bg-background" />
-          <Background gap={12} size={1} className="dark:bg-muted" />
+          <Controls />
+          <MiniMap />
+          <Background gap={12} size={1} />
         </ReactFlow>
       </div>
 
