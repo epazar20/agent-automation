@@ -10,15 +10,23 @@ import com.example.mcpprovider.enums.FinanceActionType;
 import com.example.mcpprovider.model.Customer;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import lombok.extern.slf4j.Slf4j;
 
+import java.time.*;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Pattern;
 import java.util.regex.Matcher;
+import java.util.Arrays;
+import java.util.Set;
+import java.util.HashSet;
 
 @Service
+@Slf4j
 public class ActionAnalysisService {
 
     @Autowired
@@ -28,49 +36,51 @@ public class ActionAnalysisService {
     private AiProviderClient aiProviderClient;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
+    private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ISO_DATE_TIME;
+    private static final int DEFAULT_DAYS = 30; // Default to last 30 days
+    private static final ZoneId TURKEY_ZONE = ZoneId.of("Europe/Istanbul");
 
     public ActionAnalysisResponse analyzeAction(ActionAnalysisRequest request) {
         try {
-            // 1. Get customer data if customerNo is provided
+            // Validate customerId
+            if (request.getCustomerNo() == null || request.getCustomerNo().trim().isEmpty()) {
+                throw new IllegalArgumentException("customerId is required");
+            }
+
+            // 1. Get customer data
             Customer customer = null;
             String enhancedContent = request.getContent();
             
-            if (request.getCustomerNo() != null && !request.getCustomerNo().trim().isEmpty()) {
-                // Try to find customer by ID first, then create a dummy if not found
-                CustomerDto customerDto = null;
-                try {
-                    Long customerId = Long.parseLong(request.getCustomerNo());
-                    customerDto = customerService.getCustomerById(customerId).orElse(null);
-                } catch (NumberFormatException e) {
-                    // If customerNo is not a number, try to find by name or create dummy
-                    customerDto = null;
-                }
-                
-                // Convert DTO to model or create dummy
-                if (customerDto != null) {
-                    customer = convertDtoToModel(customerDto);
-                } else {
-                    customer = createDummyCustomer(request.getCustomerNo());
-                }
-                
-                // Create customer JSON string
-                String customerJson = objectMapper.writeValueAsString(customer);
-                
-                // Get all finance action types and their descriptions
-                String financeActionsInfo = createFinanceActionsInfo();
-                
-                // Enhance content with customer context and finance actions
-                enhancedContent = String.format(
-                    "%s değerli müşteri için aşağıdaki bilgileri kullanarak analiz yap:\n\n" +
-                    "Müşteri Bilgileri (JSON):\n%s\n\n" +
-                    "Finansal İşlem Tipleri ve Açıklamaları:\n%s\n\n" +
-                    "Müşteri Talebi:\n%s",
-                    request.getCustomerNo(),
-                    customerJson,
-                    financeActionsInfo,
-                    request.getContent()
-                );
+            // Try to find customer by ID first, then create a dummy if not found
+            CustomerDto customerDto = null;
+            try {
+                Long customerId = Long.parseLong(request.getCustomerNo());
+                customerDto = customerService.getCustomerById(customerId)
+                    .orElseThrow(() -> new IllegalArgumentException("Customer not found with ID: " + customerId));
+            } catch (NumberFormatException e) {
+                throw new IllegalArgumentException("Invalid customer ID format: " + request.getCustomerNo());
             }
+            
+            // Convert DTO to model
+            customer = convertDtoToModel(customerDto);
+            
+            // Create customer JSON string
+            String customerJson = objectMapper.writeValueAsString(customer);
+            
+            // Get all finance action types and their descriptions
+            String financeActionsInfo = createFinanceActionsInfo();
+            
+            // Enhance content with customer context and finance actions
+            enhancedContent = String.format(
+                "%s değerli müşteri için aşağıdaki bilgileri kullanarak analiz yap:\n\n" +
+                "Müşteri Bilgileri (JSON):\n%s\n\n" +
+                "Finansal İşlem Tipleri ve Açıklamaları:\n%s\n\n" +
+                "Müşteri Talebi:\n%s",
+                request.getCustomerNo(),
+                customerJson,
+                financeActionsInfo,
+                request.getContent()
+            );
 
             // 2. Create enhanced prompt for AI analysis
             String specialPrompt = createAnalysisPrompt();
@@ -86,8 +96,8 @@ public class ActionAnalysisService {
 
             AiProviderResponse aiResponse = aiProviderClient.generateContent(aiRequest);
 
-            // 4. Analyze which FinanceActionTypes are relevant
-            List<FinanceActionType> relevantActions = extractSelectedActions(aiResponse.getContent());
+            // 4. Process the response and handle dates
+            List<FinanceActionType> relevantActions = processAiResponse(aiResponse.getContent());
 
             // 5. Create response
             ActionAnalysisResponse response = new ActionAnalysisResponse();
@@ -99,31 +109,88 @@ public class ActionAnalysisService {
             return response;
 
         } catch (Exception e) {
-            ActionAnalysisResponse errorResponse = new ActionAnalysisResponse();
-            errorResponse.setContent("Error during analysis: " + e.getMessage());
-            errorResponse.setExtraContent(request.getContent());
-            errorResponse.setFinanceActionTypes(new ArrayList<>());
-            return errorResponse;
+            throw new RuntimeException("Error during analysis: " + e.getMessage(), e);
         }
     }
 
     private String createAnalysisPrompt() {
-        return "Lütfen aşağıdaki bilgileri kullanarak detaylı bir analiz yap:\n\n" +
-               "1. Müşteri JSON verisini inceleyin ve ilgili alanları belirleyin\n" +
-               "2. Verilen finansal işlem tiplerini ve açıklamalarını dikkate alın\n" +
-               "3. Müşteri talebini analiz edin\n" +
-               "4. Uygun finansal işlem tiplerini seçin ve JSON formatında döndürün\n" +
-               "5. Her seçilen işlem tipi için gerekli parametreleri JSON şemasına uygun şekilde doldurun\n" +
-               "6. Müşteri bilgilerini ilgili alanlara yerleştirin\n\n" +
-               "Lütfen yanıtınızı aşağıdaki JSON formatında döndürün:\n" +
-               "{\n" +
-               "  \"selectedActions\": [\"ACTION_TYPE1\", \"ACTION_TYPE2\"],\n" +
-               "  \"parameters\": {\n" +
-               "    \"actionType1\": { /* ilgili parametreler */ },\n" +
-               "    \"actionType2\": { /* ilgili parametreler */ }\n" +
-               "  },\n" +
-               "  \"customerData\": { /* müşteri verilerinden ilgili alanlar */ }\n" +
-               "}";
+        // Get current date for the prompt
+        ZonedDateTime now = ZonedDateTime.now(TURKEY_ZONE);
+        String currentYear = String.valueOf(now.getYear());
+        String currentDate = now.format(DateTimeFormatter.ofPattern("yyyy-MM-dd"));
+        
+        StringBuilder prompt = new StringBuilder();
+        prompt.append("Lütfen aşağıdaki bilgileri kullanarak detaylı bir analiz yap:\n\n");
+        prompt.append("ÖNEMLİ: Tüm tarihler için şu anki yıl ").append(currentYear)
+              .append(" kullanılmalıdır. Bugünün tarihi: ").append(currentDate).append("\n\n");
+        
+        prompt.append("1. Müşteri JSON verisini inceleyin ve ilgili alanları belirleyin\n");
+        prompt.append("2. Verilen finansal işlem tiplerini ve açıklamalarını dikkate alın\n");
+        prompt.append("3. Müşteri talebini analiz edin ve tarih aralığı belirtilmişse (örn: son 3 gün) bunu tespit edin\n");
+        prompt.append("4. Her işlem tipi için aşağıdaki JSON şablonlarını kullanın\n\n");
+
+        prompt.append("ÖNEMLİ PARAMETRE KURALLARI:\n");
+        prompt.append("- Şablon içinde | karakteri ile ayrılmış değerler (örn: \"in|out\") için:\n");
+        prompt.append("  * SADECE belirtilen değerlerden BİRİNİ seçin\n");
+        prompt.append("  * Eğer müşteri talebi bu değerlerden hiçbirine uygun değilse NULL kullanın\n");
+        prompt.append("  * Asla | karakteri ile ayrılmış değerler dışında bir değer veya kombinasyon kullanmayın\n");
+        prompt.append("  * Örnek: direction için \"both\" veya \"in,out\" gibi değerler KULLANILAMAZ\n\n");
+        
+        prompt.append("- Şablon içinde ? karakteri ile işaretlenmiş alanlar için:\n");
+        prompt.append("  * Müşteri talebine göre uygun herhangi bir değer kullanılabilir\n");
+        prompt.append("  * Eğer belirtilmemişse NULL kullanın\n\n");
+
+        // Add JSON templates for each action type
+        for (FinanceActionType actionType : FinanceActionType.values()) {
+            prompt.append(actionType.name()).append(" şablonu:\n");
+            prompt.append(actionType.getJsonMap()).append("\n");
+            
+            // Parse the JSON map to extract and explain enum-like fields
+            try {
+                JsonNode jsonMapNode = objectMapper.readTree(actionType.getJsonMap());
+                jsonMapNode.fields().forEachRemaining(entry -> {
+                    String value = entry.getValue().asText();
+                    if (value.contains("|")) {
+                        prompt.append("- ").append(entry.getKey()).append(" için geçerli değerler: ")
+                              .append(value).append("\n");
+                        prompt.append("  * Bu değerlerden BİRİNİ seçin veya NULL bırakın\n");
+                    }
+                });
+            } catch (Exception e) {
+                log.error("Error parsing JSON map for {}: {}", actionType, e.getMessage());
+            }
+            prompt.append("\n");
+        }
+
+        prompt.append("Önemli Tarih Kuralları:\n");
+        prompt.append("- Tarih aralığı belirtilmemişse varsayılan olarak son 1 ay kullanılacak\n");
+        prompt.append("- Tüm tarihler ").append(currentYear).append(" yılı içinde olmalıdır\n");
+        prompt.append("- Bitiş tarihi (endDate) her zaman bugünün tarihi olmalıdır: ").append(currentDate).append("\n");
+        prompt.append("- Başlangıç tarihi (startDate) bitiş tarihinden 1 ay öncesi olmalıdır\n");
+        prompt.append("- Tarihler ISO format kullanmalı (YYYY-MM-DDThh:mm:ss)\n\n");
+
+        prompt.append("Lütfen yanıtınızı aşağıdaki JSON formatında döndürün:\n");
+        prompt.append("{\n");
+        prompt.append("  \"selectedActions\": [\"ACTION_TYPE1\"],\n");
+        prompt.append("  \"parameters\": {\n");
+        prompt.append("    \"ACTION_TYPE1\": {\n");
+        prompt.append("      \"actionType\": \"GENERATE_STATEMENT\",\n");
+        prompt.append("      \"customerId\": \"1\",\n");
+        prompt.append("      \"startDate\": \"").append(currentYear).append("-MM-DDT00:00:00\",\n");
+        prompt.append("      \"endDate\": \"").append(currentDate).append("T23:59:59\",\n");
+        prompt.append("      \"direction\": \"in\",  // Sadece 'in' veya 'out' kullanın, başka değer KULLANMAYIN\n");
+        prompt.append("      ... diğer parametreler ...\n");
+        prompt.append("    }\n");
+        prompt.append("  },\n");
+        prompt.append("  \"dateRange\": {\n");
+        prompt.append("    \"startDate\": \"").append(currentYear).append("-MM-DDT00:00:00\",\n");
+        prompt.append("    \"endDate\": \"").append(currentDate).append("T23:59:59\",\n");
+        prompt.append("    \"isRelative\": true,\n");
+        prompt.append("    \"relativeDays\": 30\n");
+        prompt.append("  }\n");
+        prompt.append("}\n");
+
+        return prompt.toString();
     }
 
     private String createFinanceActionsInfo() {
@@ -165,7 +232,7 @@ public class ActionAnalysisService {
         }
     }
 
-    private List<FinanceActionType> extractSelectedActions(String aiResponse) {
+    private List<FinanceActionType> processAiResponse(String aiResponse) {
         List<FinanceActionType> selectedActions = new ArrayList<>();
         
         if (aiResponse == null || aiResponse.trim().isEmpty()) {
@@ -174,38 +241,140 @@ public class ActionAnalysisService {
         }
 
         try {
-            // First, try to extract JSON from markdown code blocks
             String cleanedResponse = extractAndCleanJson(aiResponse);
             
             if (cleanedResponse != null) {
                 JsonNode rootNode = objectMapper.readTree(cleanedResponse);
                 JsonNode selectedActionsNode = rootNode.get("selectedActions");
+                JsonNode parametersNode = rootNode.get("parameters");
+                JsonNode dateRangeNode = rootNode.get("dateRange");
+                
+                // Get current date for validation
+                ZonedDateTime nowInTurkey = ZonedDateTime.now(TURKEY_ZONE);
+                int currentYear = nowInTurkey.getYear();
                 
                 if (selectedActionsNode != null && selectedActionsNode.isArray()) {
                     for (JsonNode actionNode : selectedActionsNode) {
                         try {
                             String actionTypeStr = actionNode.asText();
                             FinanceActionType actionType = FinanceActionType.valueOf(actionTypeStr);
+                            
+                            // Get JSON map for the action type
+                            String jsonMap = actionType.getJsonMap();
+                            JsonNode jsonMapNode = objectMapper.readTree(jsonMap);
+                            
+                            // Get parameters for this action
+                            JsonNode actionParams = parametersNode != null ? parametersNode.get(actionTypeStr) : null;
+                            
+                            if (actionParams != null) {
+                                // Validate and process each parameter based on JSON map
+                                actionParams.fields().forEachRemaining(entry -> {
+                                    String paramName = entry.getKey();
+                                    JsonNode paramValue = entry.getValue();
+                                    JsonNode jsonMapParamValue = jsonMapNode.get(paramName);
+                                    
+                                    if (jsonMapParamValue != null && jsonMapParamValue.isTextual()) {
+                                        String jsonMapParamStr = jsonMapParamValue.asText();
+                                        
+                                        // Handle enum-like values (separated by |)
+                                        if (jsonMapParamStr.contains("|")) {
+                                            String[] allowedValues = jsonMapParamStr.split("\\|");
+                                            Set<String> validValues = new HashSet<>(Arrays.asList(allowedValues));
+                                            
+                                            // Only validate that the value is allowed, let AI choose which one
+                                            if (paramValue != null && !paramValue.isNull() && 
+                                                !validValues.contains(paramValue.asText())) {
+                                                log.warn("Invalid enum value '{}' for parameter '{}'. Must be one of: {}", 
+                                                    paramValue.asText(), paramName, validValues);
+                                                // Don't set to null, let the original AI choice persist if valid
+                                            }
+                                        }
+                                        // Handle dynamic values (marked with ?)
+                                        else if ("?".equals(jsonMapParamStr)) {
+                                            // Value can be anything or null, no validation needed
+                                            log.debug("Dynamic parameter '{}' with value: {}", 
+                                                paramName, paramValue);
+                                        }
+                                    }
+                                });
+                            }
+                            
+                            // Special handling for GENERATE_STATEMENT
+                            if (actionType == FinanceActionType.GENERATE_STATEMENT) {
+                                handleGenerateStatement(actionParams, nowInTurkey, currentYear, dateRangeNode);
+                            }
+                            
                             selectedActions.add(actionType);
                         } catch (IllegalArgumentException e) {
-                            // Log invalid action type and continue
-                            System.out.println("Invalid action type found: " + actionNode.asText());
+                            log.error("Invalid action type found: {}", actionNode.asText());
                         }
                     }
                 }
             }
         } catch (Exception e) {
-            System.out.println("Failed to parse AI response: " + e.getMessage());
-            // Fallback: try to find selectedActions array directly in text
+            log.error("Failed to parse AI response: {}", e.getMessage());
             selectedActions = fallbackExtractActions(aiResponse);
         }
         
-        // If no valid actions were found, add default action
         if (selectedActions.isEmpty()) {
             selectedActions.add(FinanceActionType.LOG_CUSTOMER_INTERACTION);
         }
         
         return selectedActions;
+    }
+
+    private void handleGenerateStatement(JsonNode actionParams, ZonedDateTime nowInTurkey, 
+            int currentYear, JsonNode dateRangeNode) {
+        if (actionParams instanceof ObjectNode) {
+            ObjectNode params = (ObjectNode) actionParams;
+            
+            // Set endDate to end of current day
+            ZonedDateTime endDate = nowInTurkey
+                .withHour(23)
+                .withMinute(59)
+                .withSecond(59)
+                .withNano(0);
+
+            // Calculate startDate (1 month ago from current date)
+            ZonedDateTime startDate = endDate
+                .minusMonths(1)
+                .withHour(0)
+                .withMinute(0)
+                .withSecond(0)
+                .withNano(0);
+
+            log.info("Calculated date range - Start: {}, End: {}", startDate, endDate);
+            
+            // Convert to ISO format and ensure current year
+            String startDateStr = startDate.format(DATE_FORMATTER);
+            String endDateStr = endDate.format(DATE_FORMATTER);
+            
+            // Validate and correct year if needed
+            if (!startDateStr.startsWith(String.valueOf(currentYear)) || 
+                !endDateStr.startsWith(String.valueOf(currentYear))) {
+                log.warn("Correcting year in dates from AI response");
+                startDateStr = startDateStr.replaceFirst("\\d{4}", String.valueOf(currentYear));
+                endDateStr = endDateStr.replaceFirst("\\d{4}", String.valueOf(currentYear));
+            }
+            
+            // Update both parameters and dateRange
+            params.put("startDate", startDateStr);
+            params.put("endDate", endDateStr);
+            
+            // Ensure customerId is set
+            if (!params.has("customerId") || params.get("customerId").isNull()) {
+                params.put("customerId", "1");
+            }
+            
+            // Update dateRange if exists
+            if (dateRangeNode instanceof ObjectNode) {
+                ObjectNode dateRange = (ObjectNode) dateRangeNode;
+                dateRange.put("startDate", startDateStr);
+                dateRange.put("endDate", endDateStr);
+                dateRange.put("isRelative", true);
+                dateRange.put("relativeDays", 30);
+            }
+        }
     }
     
     private String extractAndCleanJson(String aiResponse) {

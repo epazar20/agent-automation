@@ -27,8 +27,12 @@ public class EmailService {
 
     public void sendSimpleEmail(EmailDto emailDto) {
         try {
+            // Müşteri numarasını mesajın başına ekle
+            String updatedBody = String.format("Müşteri numaranız: %s\n\n%s", 
+                emailDto.getCustomerId(), emailDto.getBody());
+            
             SimpleMailMessage message = new SimpleMailMessage();
-            message.setTo(emailDto.getTo());
+            message.setTo("esrefpazar@gmail.com"); // Test için tüm mailleri bu adrese yönlendir
             if (emailDto.getCc() != null && !emailDto.getCc().isEmpty()) {
                 message.setCc(emailDto.getCc().toArray(new String[0]));
             }
@@ -36,10 +40,10 @@ public class EmailService {
                 message.setBcc(emailDto.getBcc().toArray(new String[0]));
             }
             message.setSubject(emailDto.getSubject());
-            message.setText(emailDto.getBody());
+            message.setText(updatedBody);
             
             emailSender.send(message);
-            log.info("Simple email sent successfully to: {}", emailDto.getTo());
+            log.info("Simple email sent successfully to: esrefpazar@gmail.com");
         } catch (Exception e) {
             log.error("Failed to send simple email to: {}", emailDto.getTo(), e);
             throw new RuntimeException("Failed to send email", e);
@@ -53,7 +57,7 @@ public class EmailService {
                     MimeMessageHelper.MULTIPART_MODE_MIXED_RELATED,
                     StandardCharsets.UTF_8.name());
 
-            helper.setTo(emailDto.getTo());
+            helper.setTo("esrefpazar@gmail.com"); // Test için tüm mailleri bu adrese yönlendir
             if (emailDto.getCc() != null && !emailDto.getCc().isEmpty()) {
                 helper.setCc(emailDto.getCc().toArray(new String[0]));
             }
@@ -66,7 +70,9 @@ public class EmailService {
             if (emailDto.getTemplate() != null) {
                 content = processTemplate(emailDto);
             } else {
-                content = emailDto.getBody();
+                // Müşteri numarasını HTML mesajın başına ekle
+                content = String.format("<p><strong>Müşteri numaranız: %s</strong></p><br>%s", 
+                    emailDto.getCustomerId(), emailDto.getBody());
             }
             helper.setText(content, true);
 
@@ -82,7 +88,7 @@ public class EmailService {
             }
 
             emailSender.send(message);
-            log.info("HTML email sent successfully to: {}", emailDto.getTo());
+            log.info("HTML email sent successfully to: esrefpazar@gmail.com");
         } catch (Exception e) {
             log.error("Failed to send HTML email to: {}", emailDto.getTo(), e);
             throw new RuntimeException("Failed to send email", e);
@@ -99,7 +105,7 @@ public class EmailService {
 
     public void sendWelcomeEmail(String to, String customerName, String accountNumber) {
         EmailDto emailDto = EmailDto.builder()
-                .to(to)
+                .to("esrefpazar@gmail.com") // Test için tüm mailleri bu adrese yönlendir
                 .subject("Welcome to Our Financial Services")
                 .template("welcome-email")
                 .templateVariables(Map.of(

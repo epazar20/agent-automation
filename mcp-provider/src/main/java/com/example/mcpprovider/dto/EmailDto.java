@@ -13,6 +13,8 @@ import java.util.Map;
 @NoArgsConstructor
 @AllArgsConstructor
 public class EmailDto {
+    private String actionType;
+    private String customerId;
     private String to;
     private List<String> cc;
     private List<String> bcc;

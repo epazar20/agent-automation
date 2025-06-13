@@ -24,5 +24,4 @@ public class TransactionResponseDto {
     private String counterpartyName;
     private String counterpartyIban;
     private LocalDateTime transactionDate;
-    private CustomerDto customer;
 } 

@@ -2,13 +2,17 @@ package com.example.mcpprovider.controller;
 
 import com.example.mcpprovider.dto.TransactionFilterDto;
 import com.example.mcpprovider.dto.TransactionResponseDto;
+import com.example.mcpprovider.dto.StatementResponseDto;
+import com.example.mcpprovider.entity.FinancialTransaction;
 import com.example.mcpprovider.service.TransactionService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import jakarta.validation.Valid;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -23,7 +27,7 @@ public class TransactionController {
     private final TransactionService transactionService;
 
     @GetMapping("/statement")
-    public ResponseEntity<List<TransactionResponseDto>> getTransactionStatement(
+    public ResponseEntity<StatementResponseDto> getTransactionStatement(
             @RequestParam(required = false) String actionType,
             @RequestParam(required = false) String accountId,
             @RequestParam(required = false) String customerId,
@@ -58,14 +62,23 @@ public class TransactionController {
                 .counterpartyName(counterpartyName)
                 .build();
 
-        List<TransactionResponseDto> transactions = transactionService.getTransactions(filter);
-        return ResponseEntity.ok(transactions);
+        StatementResponseDto statement = transactionService.getTransactionStatement(filter);
+        return ResponseEntity.ok(statement);
     }
 
     @PostMapping("/statement")
-    public ResponseEntity<List<TransactionResponseDto>> getTransactionStatementPost(
+    public ResponseEntity<StatementResponseDto> getTransactionStatementPost(
             @RequestBody TransactionFilterDto filter) {
-        List<TransactionResponseDto> transactions = transactionService.getTransactions(filter);
-        return ResponseEntity.ok(transactions);
+        StatementResponseDto statement = transactionService.getTransactionStatement(filter);
+        return ResponseEntity.ok(statement);
+    }
+
+    @PostMapping
+    public ResponseEntity<TransactionResponseDto> createTransaction(
+            @Valid @RequestBody FinancialTransaction transaction) {
+        log.info("POST /api/transactions - Creating new transaction for customer: {}", 
+            transaction.getCustomer() != null ? transaction.getCustomer().getId() : "null");
+        TransactionResponseDto createdTransaction = transactionService.createTransaction(transaction);
+        return ResponseEntity.status(HttpStatus.CREATED).body(createdTransaction);
     }
 }

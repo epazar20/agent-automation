@@ -2,6 +2,7 @@ package com.example.mcpprovider.specification;
 
 import com.example.mcpprovider.dto.TransactionFilterDto;
 import com.example.mcpprovider.entity.FinancialTransaction;
+import jakarta.persistence.criteria.Join;
 import jakarta.persistence.criteria.Predicate;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.util.StringUtils;
@@ -37,10 +38,12 @@ public class TransactionSpecification {
                     root.get("transactionDate"), filter.getEndDate()));
             }
 
-            // Direction filter
+            // Direction filter (case-insensitive)
             if (StringUtils.hasText(filter.getDirection())) {
-                predicates.add(criteriaBuilder.equal(
-                    root.get("direction"), filter.getDirection()));
+                String directionPattern = filter.getDirection().toUpperCase();
+                predicates.add(criteriaBuilder.like(
+                    criteriaBuilder.upper(root.get("direction")), 
+                    directionPattern));
             }
 
             // Amount range filter
@@ -53,35 +56,42 @@ public class TransactionSpecification {
                     root.get("amount"), filter.getMaxAmount()));
             }
 
-            // Transaction type filter
+            // Transaction type filter (case-insensitive)
             if (StringUtils.hasText(filter.getTransactionType())) {
-                predicates.add(criteriaBuilder.equal(
-                    root.get("transactionType"), filter.getTransactionType()));
+                String typePattern = filter.getTransactionType().toUpperCase();
+                predicates.add(criteriaBuilder.like(
+                    criteriaBuilder.upper(root.get("transactionType")), 
+                    typePattern));
             }
 
-            // Category filter
+            // Category filter (case-insensitive)
             if (StringUtils.hasText(filter.getCategory())) {
+                String categoryPattern = filter.getCategory().toLowerCase();
                 predicates.add(criteriaBuilder.equal(
-                    root.get("category"), filter.getCategory()));
+                    criteriaBuilder.function("LOWER", String.class, root.get("category")), 
+                    categoryPattern));
             }
 
-            // Description contains filter
+            // Description contains filter (case-insensitive partial match)
             if (StringUtils.hasText(filter.getDescriptionContains())) {
                 predicates.add(criteriaBuilder.like(
-                    criteriaBuilder.lower(root.get("description")),
-                    "%" + filter.getDescriptionContains().toLowerCase() + "%"));
+                    criteriaBuilder.upper(root.get("description")),
+                    "%" + filter.getDescriptionContains().toUpperCase() + "%"));
             }
 
-            // Currency filter
+            // Currency filter (case-insensitive)
             if (StringUtils.hasText(filter.getCurrency())) {
-                predicates.add(criteriaBuilder.equal(
-                    root.get("currency"), filter.getCurrency()));
+                String currencyPattern = filter.getCurrency().toUpperCase();
+                predicates.add(criteriaBuilder.like(
+                    criteriaBuilder.upper(root.get("currency")), 
+                    currencyPattern));
             }
 
-            // Counterparty name filter
+            // Counterparty name filter (case-insensitive partial match)
             if (StringUtils.hasText(filter.getCounterpartyName())) {
-                predicates.add(criteriaBuilder.equal(
-                    root.get("counterpartyName"), filter.getCounterpartyName()));
+                predicates.add(criteriaBuilder.like(
+                    criteriaBuilder.upper(root.get("counterpartyName")),
+                    "%" + filter.getCounterpartyName().toUpperCase() + "%"));
             }
 
             // Apply sorting
@@ -91,6 +101,9 @@ public class TransactionSpecification {
                 } else {
                     query.orderBy(criteriaBuilder.asc(root.get("transactionDate")));
                 }
+            } else {
+                // Default sorting by transaction date desc
+                query.orderBy(criteriaBuilder.desc(root.get("transactionDate")));
             }
 
             return criteriaBuilder.and(predicates.toArray(new Predicate[0]));

@@ -5,12 +5,12 @@ public enum FinanceActionType {
     SEND_EMAIL(
         "Mail gönderimlerini sağla",
         "Ahmet, Veli'ye tasklarının durumunu sor",
-        "{\n  \"actions\": [\n    {\n      \"type\": \"send_email\",\n      \"senderName\": \"\",\n      \"recipientName\": \"\",\n      \"emailSubject\": \"\",\n      \"emailBodyTemplate\": \"\"\n    }\n  ]\n}"
+        "{\"actionType\":\"SEND_EMAIL\",\"customerId\":\"?\",\"to\":\"?\",\"subject\":\"?\",\"body\":\"?\"}"
     ),
     GENERATE_STATEMENT(
         "Hesap ekstresi, işlem dökümü, bakiye raporu oluştur ve müşteriye ilet.",
         "Hesap ekstresini gönder lütfen, Ahmet'ten Veli'ye ait hesap hareketlerini istiyorum.",
-        "{\"senderName\":\"Ahmet\",\"recipientName\":\"Veli\",\"accountId\":\"123456\",\"customertId\":\"123456\",\"startDate\":\"2025-05-01\",\"endDate\":\"2025-05-15\",\"direction\":\"out\",\"minAmount\":500,\"maxAmount\":2000,\"transactionType\":\"purchase\",\"category\":\"shopping\",\"descriptionContains\":\"Trendyol\",\"limit\":10,\"order\":\"desc\",\"currency\":\"TRY\"}"
+        "{\"actionType\":\"GENERATE_STATEMENT\",\"customerId\":\"?\",\"startDate\":\"?\",\"endDate\":\"?\",\"direction\":\"in|out\",\"minAmount\":\"?\",\"maxAmount\":\"?\",\"transactionType\":\"purchase|transfer|withdrawal|deposit|payment\",\"category\":\"shopping|groceries|entertainment|transportation|utilities|healthcare|education|salary|rent|investment|personal\",\"descriptionContains\":\"?\",\"limit\":\"?\",\"order\":\"asc|desc\",\"currency\":\"TRY|USD|EUR|GBP\"}"
     ),
     SEND_PAYMENT_REMINDER(
         "Geciken ödemeler için hatırlatma maili veya SMS gönder.",
