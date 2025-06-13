@@ -2,6 +2,8 @@ package com.example.mcpprovider.service;
 
 import com.example.mcpprovider.dto.EmailAttachmentDto;
 import com.example.mcpprovider.dto.EmailDto;
+import com.example.mcpprovider.entity.EmailAttachment;
+import com.example.mcpprovider.repository.EmailAttachmentRepository;
 import jakarta.mail.internet.MimeMessage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -15,6 +17,9 @@ import org.thymeleaf.spring6.SpringTemplateEngine;
 
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Base64;
+import java.util.List;
 import java.util.Map;
 
 @Service
@@ -24,6 +29,7 @@ public class EmailService {
 
     private final JavaMailSender emailSender;
     private final SpringTemplateEngine templateEngine;
+    private final EmailAttachmentRepository emailAttachmentRepository;
 
     public void sendSimpleEmail(EmailDto emailDto) {
         try {
@@ -92,6 +98,43 @@ public class EmailService {
         } catch (Exception e) {
             log.error("Failed to send HTML email to: {}", emailDto.getTo(), e);
             throw new RuntimeException("Failed to send email", e);
+        }
+    }
+
+    public void sendEmailWithAttachmentIds(EmailDto emailDto, List<Long> attachmentIds) {
+        try {
+            log.info("Sending email with attachment IDs: {}", attachmentIds);
+            
+            // Attachment ID'lerden dosyaları yükle
+            List<EmailAttachmentDto> attachments = new ArrayList<>();
+            if (attachmentIds != null && !attachmentIds.isEmpty()) {
+                for (Long attachmentId : attachmentIds) {
+                    EmailAttachment dbAttachment = emailAttachmentRepository.findById(attachmentId)
+                        .orElse(null);
+                    if (dbAttachment != null) {
+                        EmailAttachmentDto attachmentDto = EmailAttachmentDto.builder()
+                            .filename(dbAttachment.getFilename())
+                            .contentType(dbAttachment.getContentType())
+                            .content(Base64.getDecoder().decode(dbAttachment.getBase64Content()))
+                            .build();
+                        attachments.add(attachmentDto);
+                        log.info("Added attachment: {} (size: {} bytes)", 
+                            dbAttachment.getFilename(), dbAttachment.getFileSize());
+                    } else {
+                        log.warn("Attachment not found with ID: {}", attachmentId);
+                    }
+                }
+            }
+            
+            // EmailDto'ya attachment'ları ekle
+            emailDto.setAttachments(attachments);
+            
+            // HTML email gönder (attachment'lar için)
+            sendHtmlEmail(emailDto);
+            
+        } catch (Exception e) {
+            log.error("Failed to send email with attachments: {}", e.getMessage(), e);
+            throw new RuntimeException("Failed to send email with attachments", e);
         }
     }
 

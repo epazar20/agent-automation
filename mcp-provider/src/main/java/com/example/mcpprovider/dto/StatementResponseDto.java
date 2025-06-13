@@ -14,4 +14,5 @@ import java.util.List;
 public class StatementResponseDto {
     private CustomerDto customer;
     private List<TransactionResponseDto> transactions;
+    private List<Long> attachmentIds;
 } 

@@ -18,15 +18,29 @@ public class EmailController {
 
     @PostMapping("/simple")
     public ResponseEntity<Void> sendSimpleEmail(@RequestBody EmailDto emailDto) {
-        log.info("Sending simple email to: {}", emailDto.getTo());
-        emailService.sendSimpleEmail(emailDto);
+        log.info("Sending simple email to: {} with attachmentIds: {}", emailDto.getTo(), emailDto.getAttachmentIds());
+        
+        // Eğer attachment ID'leri varsa, onları kullanarak gönder
+        if (emailDto.getAttachmentIds() != null && !emailDto.getAttachmentIds().isEmpty()) {
+            emailService.sendEmailWithAttachmentIds(emailDto, emailDto.getAttachmentIds());
+        } else {
+            emailService.sendSimpleEmail(emailDto);
+        }
+        
         return ResponseEntity.ok().build();
     }
 
     @PostMapping("/html")
     public ResponseEntity<Void> sendHtmlEmail(@RequestBody EmailDto emailDto) {
-        log.info("Sending HTML email to: {}", emailDto.getTo());
-        emailService.sendHtmlEmail(emailDto);
+        log.info("Sending HTML email to: {} with attachmentIds: {}", emailDto.getTo(), emailDto.getAttachmentIds());
+        
+        // Eğer attachment ID'leri varsa, onları kullanarak gönder
+        if (emailDto.getAttachmentIds() != null && !emailDto.getAttachmentIds().isEmpty()) {
+            emailService.sendEmailWithAttachmentIds(emailDto, emailDto.getAttachmentIds());
+        } else {
+            emailService.sendHtmlEmail(emailDto);
+        }
+        
         return ResponseEntity.ok().build();
     }
 

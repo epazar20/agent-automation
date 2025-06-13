@@ -24,4 +24,5 @@ public class EmailDto {
     private String template;
     private Map<String, Object> templateVariables;
     private List<EmailAttachmentDto> attachments;
+    private List<Long> attachmentIds;
 } 

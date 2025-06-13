@@ -36,9 +36,8 @@ public class ActionAnalysisService {
     private AiProviderClient aiProviderClient;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
-    private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ISO_DATE_TIME;
+    private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss");
     private static final int DEFAULT_DAYS = 30; // Default to last 30 days
-    private static final ZoneId TURKEY_ZONE = ZoneId.of("Europe/Istanbul");
 
     public ActionAnalysisResponse analyzeAction(ActionAnalysisRequest request) {
         try {
@@ -96,14 +95,14 @@ public class ActionAnalysisService {
 
             AiProviderResponse aiResponse = aiProviderClient.generateContent(aiRequest);
 
-            // 4. Process the response and handle dates
-            List<FinanceActionType> relevantActions = processAiResponse(aiResponse.getContent());
+            // 4. Process the response and handle dates - this now returns both actions and modified content
+            ProcessedResponse processedResponse = processAiResponseWithModifications(aiResponse.getContent());
 
             // 5. Create response
             ActionAnalysisResponse response = new ActionAnalysisResponse();
-            response.setContent(aiResponse != null ? aiResponse.getContent() : "");
+            response.setContent(processedResponse.getModifiedContent() != null ? processedResponse.getModifiedContent() : aiResponse.getContent());
             response.setExtraContent(request.getContent());
-            response.setFinanceActionTypes(relevantActions);
+            response.setFinanceActionTypes(processedResponse.getActions());
             response.setCustomer(customer);
 
             return response;
@@ -113,9 +112,23 @@ public class ActionAnalysisService {
         }
     }
 
+    // New class to hold both actions and modified content
+    private static class ProcessedResponse {
+        private final List<FinanceActionType> actions;
+        private final String modifiedContent;
+        
+        public ProcessedResponse(List<FinanceActionType> actions, String modifiedContent) {
+            this.actions = actions;
+            this.modifiedContent = modifiedContent;
+        }
+        
+        public List<FinanceActionType> getActions() { return actions; }
+        public String getModifiedContent() { return modifiedContent; }
+    }
+
     private String createAnalysisPrompt() {
         // Get current date for the prompt
-        ZonedDateTime now = ZonedDateTime.now(TURKEY_ZONE);
+        ZonedDateTime now = ZonedDateTime.now();
         String currentYear = String.valueOf(now.getYear());
         String currentDate = now.format(DateTimeFormatter.ofPattern("yyyy-MM-dd"));
         
@@ -232,16 +245,18 @@ public class ActionAnalysisService {
         }
     }
 
-    private List<FinanceActionType> processAiResponse(String aiResponse) {
+    private ProcessedResponse processAiResponseWithModifications(String aiResponse) {
         List<FinanceActionType> selectedActions = new ArrayList<>();
+        String modifiedContent = aiResponse;
         
         if (aiResponse == null || aiResponse.trim().isEmpty()) {
             selectedActions.add(FinanceActionType.LOG_CUSTOMER_INTERACTION);
-            return selectedActions;
+            return new ProcessedResponse(selectedActions, modifiedContent);
         }
 
         try {
             String cleanedResponse = extractAndCleanJson(aiResponse);
+            log.info("Extracted JSON from AI response: {}", cleanedResponse);
             
             if (cleanedResponse != null) {
                 JsonNode rootNode = objectMapper.readTree(cleanedResponse);
@@ -250,14 +265,29 @@ public class ActionAnalysisService {
                 JsonNode dateRangeNode = rootNode.get("dateRange");
                 
                 // Get current date for validation
-                ZonedDateTime nowInTurkey = ZonedDateTime.now(TURKEY_ZONE);
+                ZonedDateTime nowInTurkey = ZonedDateTime.now();
                 int currentYear = nowInTurkey.getYear();
+                
+                // Check if SEND_EMAIL is in selected actions
+                boolean hasSendEmail = false;
+                if (selectedActionsNode != null && selectedActionsNode.isArray()) {
+                    for (JsonNode actionNode : selectedActionsNode) {
+                        if ("SEND_EMAIL".equals(actionNode.asText())) {
+                            hasSendEmail = true;
+                            log.info("SEND_EMAIL action detected in selected actions");
+                            break;
+                        }
+                    }
+                }
+                
+                boolean jsonModified = false;
                 
                 if (selectedActionsNode != null && selectedActionsNode.isArray()) {
                     for (JsonNode actionNode : selectedActionsNode) {
                         try {
                             String actionTypeStr = actionNode.asText();
                             FinanceActionType actionType = FinanceActionType.valueOf(actionTypeStr);
+                            log.info("Processing action type: {}", actionTypeStr);
                             
                             // Get JSON map for the action type
                             String jsonMap = actionType.getJsonMap();
@@ -267,6 +297,7 @@ public class ActionAnalysisService {
                             JsonNode actionParams = parametersNode != null ? parametersNode.get(actionTypeStr) : null;
                             
                             if (actionParams != null) {
+                                log.info("Found parameters for {}: {}", actionTypeStr, actionParams);
                                 // Validate and process each parameter based on JSON map
                                 actionParams.fields().forEachRemaining(entry -> {
                                     String paramName = entry.getKey();
@@ -301,7 +332,12 @@ public class ActionAnalysisService {
                             
                             // Special handling for GENERATE_STATEMENT
                             if (actionType == FinanceActionType.GENERATE_STATEMENT) {
-                                handleGenerateStatement(actionParams, nowInTurkey, currentYear, dateRangeNode);
+                                log.info("Handling GENERATE_STATEMENT with hasSendEmail: {}", hasSendEmail);
+                                boolean wasModified = handleGenerateStatement(actionParams, nowInTurkey, currentYear, dateRangeNode, hasSendEmail);
+                                if (wasModified) {
+                                    jsonModified = true;
+                                    log.info("GENERATE_STATEMENT parameters were modified");
+                                }
                             }
                             
                             selectedActions.add(actionType);
@@ -309,6 +345,31 @@ public class ActionAnalysisService {
                             log.error("Invalid action type found: {}", actionNode.asText());
                         }
                     }
+                }
+                
+                // If JSON was modified, reconstruct the response content
+                if (jsonModified) {
+                    log.info("JSON was modified, reconstructing response content");
+                    String modifiedJson = objectMapper.writeValueAsString(rootNode);
+                    log.info("Modified JSON: {}", modifiedJson);
+                    
+                    // Replace the JSON part in the original response
+                    if (aiResponse.contains("```json")) {
+                        int jsonStart = aiResponse.indexOf("```json") + 7;
+                        int jsonEnd = aiResponse.indexOf("```", jsonStart);
+                        if (jsonEnd != -1) {
+                            String beforeJson = aiResponse.substring(0, jsonStart);
+                            String afterJson = aiResponse.substring(jsonEnd);
+                            modifiedContent = beforeJson + "\n" + modifiedJson + "\n" + afterJson;
+                            log.info("Successfully replaced JSON in markdown format");
+                        }
+                    } else {
+                        modifiedContent = aiResponse.replace(cleanedResponse, modifiedJson);
+                        log.info("Successfully replaced JSON in plain format");
+                    }
+                    log.info("Final modified content: {}", modifiedContent);
+                } else {
+                    log.info("No JSON modifications were made");
                 }
             }
         } catch (Exception e) {
@@ -320,23 +381,28 @@ public class ActionAnalysisService {
             selectedActions.add(FinanceActionType.LOG_CUSTOMER_INTERACTION);
         }
         
-        return selectedActions;
+        return new ProcessedResponse(selectedActions, modifiedContent);
     }
 
-    private void handleGenerateStatement(JsonNode actionParams, ZonedDateTime nowInTurkey, 
-            int currentYear, JsonNode dateRangeNode) {
+    private boolean handleGenerateStatement(JsonNode actionParams, ZonedDateTime nowInTurkey, 
+            int currentYear, JsonNode dateRangeNode, boolean hasSendEmail) {
+        boolean modified = false;
+        log.info("handleGenerateStatement called with hasSendEmail: {}", hasSendEmail);
+        
         if (actionParams instanceof ObjectNode) {
             ObjectNode params = (ObjectNode) actionParams;
+            log.info("ActionParams before modification: {}", params);
             
             // Set endDate to end of current day
-            ZonedDateTime endDate = nowInTurkey
+            LocalDateTime endDate = nowInTurkey
                 .withHour(23)
                 .withMinute(59)
                 .withSecond(59)
-                .withNano(0);
+                .withNano(0)
+                .toLocalDateTime();
 
             // Calculate startDate (1 month ago from current date)
-            ZonedDateTime startDate = endDate
+            LocalDateTime startDate = endDate
                 .minusMonths(1)
                 .withHour(0)
                 .withMinute(0)
@@ -345,7 +411,7 @@ public class ActionAnalysisService {
 
             log.info("Calculated date range - Start: {}, End: {}", startDate, endDate);
             
-            // Convert to ISO format and ensure current year
+            // Convert to ISO format without timezone
             String startDateStr = startDate.format(DATE_FORMATTER);
             String endDateStr = endDate.format(DATE_FORMATTER);
             
@@ -366,6 +432,18 @@ public class ActionAnalysisService {
                 params.put("customerId", "1");
             }
             
+            // Add emailFlag if SEND_EMAIL action is present
+            if (hasSendEmail) {
+                log.info("Adding emailFlag: true to GENERATE_STATEMENT parameters");
+                params.put("emailFlag", true);
+                modified = true;
+                log.info("emailFlag added successfully, modified flag set to true");
+            } else {
+                log.info("hasSendEmail is false, not adding emailFlag");
+            }
+            
+            log.info("ActionParams after modification: {}", params);
+            
             // Update dateRange if exists
             if (dateRangeNode instanceof ObjectNode) {
                 ObjectNode dateRange = (ObjectNode) dateRangeNode;
@@ -374,7 +452,12 @@ public class ActionAnalysisService {
                 dateRange.put("isRelative", true);
                 dateRange.put("relativeDays", 30);
             }
+        } else {
+            log.warn("actionParams is not an ObjectNode, type: {}", actionParams != null ? actionParams.getClass().getSimpleName() : "null");
         }
+        
+        log.info("handleGenerateStatement returning modified: {}", modified);
+        return modified;
     }
     
     private String extractAndCleanJson(String aiResponse) {

@@ -28,4 +28,5 @@ public class TransactionFilterDto {
     private String order;
     private String currency;
     private String counterpartyName;
+    private Boolean emailFlag;
 } 

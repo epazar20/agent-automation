@@ -18,6 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -29,6 +30,7 @@ public class TransactionService {
 
     private final FinancialTransactionRepository transactionRepository;
     private final CustomerRepository customerRepository;
+    private final DocumentGenerationService documentGenerationService;
 
     public StatementResponseDto getTransactionStatement(TransactionFilterDto filter) {
         try {
@@ -41,12 +43,13 @@ public class TransactionService {
             PageRequest pageRequest = createPageRequest(filter);
 
             // Log all filter parameters in detail
-            log.info("Applying filters - customerId: {}, category: {}, transactionType: {}, direction: {}, currency: {}", 
+            log.info("Applying filters - customerId: {}, category: {}, transactionType: {}, direction: {}, currency: {}, emailFlag: {}", 
                 filter.getCustomerId(), 
                 filter.getCategory(),
                 filter.getTransactionType(),
                 filter.getDirection(),
-                filter.getCurrency());
+                filter.getCurrency(),
+                filter.getEmailFlag());
             
             if (filter.getStartDate() != null || filter.getEndDate() != null) {
                 log.info("Date range filter - startDate: {}, endDate: {}", 
@@ -89,11 +92,30 @@ public class TransactionService {
                 .map(this::toDto)
                 .collect(Collectors.toList());
 
-            // Create and return statement response
-            return StatementResponseDto.builder()
+            // Create statement response
+            StatementResponseDto.StatementResponseDtoBuilder responseBuilder = StatementResponseDto.builder()
                 .customer(customerDto)
-                .transactions(transactionDtos)
+                .transactions(transactionDtos);
+
+            // Her durumda PDF dokümanı oluştur
+            List<Long> attachmentIds = new ArrayList<>();
+            log.info("Generating document for statement");
+            
+            StatementResponseDto tempResponse = responseBuilder.build();
+            Long attachmentId = documentGenerationService.generateStatementDocument(tempResponse);
+            attachmentIds.add(attachmentId);
+            
+            log.info("Document generated with attachment ID: {}", attachmentId);
+
+            // Final response'u oluştur
+            StatementResponseDto response = responseBuilder
+                .attachmentIds(attachmentIds)
                 .build();
+
+            log.info("Returning statement with {} transactions and {} attachments", 
+                transactionDtos.size(), attachmentIds.size());
+            
+            return response;
 
         } catch (Exception e) {
             log.error("Error while getting transaction statement: {}", e.getMessage(), e);

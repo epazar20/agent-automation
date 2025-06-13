@@ -42,7 +42,8 @@ public class TransactionController {
             @RequestParam(required = false) Integer limit,
             @RequestParam(required = false, defaultValue = "desc") String order,
             @RequestParam(required = false) String currency,
-            @RequestParam(required = false) String counterpartyName) {
+            @RequestParam(required = false) String counterpartyName,
+            @RequestParam(required = false) Boolean emailFlag) {
 
         TransactionFilterDto filter = TransactionFilterDto.builder()
                 .actionType(actionType)
@@ -60,6 +61,7 @@ public class TransactionController {
                 .order(order)
                 .currency(currency)
                 .counterpartyName(counterpartyName)
+                .emailFlag(emailFlag)
                 .build();
 
         StatementResponseDto statement = transactionService.getTransactionStatement(filter);
