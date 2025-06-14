@@ -2,8 +2,12 @@ package com.example.aiprovider.client;
 
 import com.example.aiprovider.model.AiRequest;
 import com.example.aiprovider.model.HuggingFaceRequest;
+import com.example.aiprovider.model.HuggingFaceResponse;
 import com.example.aiprovider.service.RequestProcessor;
 import com.example.aiprovider.utils.JsonEscapeHelper;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -11,6 +15,7 @@ import org.springframework.stereotype.Component;
 @Component
 public class HuggingFaceClient extends BaseClient implements AiClient {
     
+    private static final Logger log = LoggerFactory.getLogger(HuggingFaceClient.class);
     private static final String API_URL = "https://router.huggingface.co/novita/v3/openai/chat/completions";
     
     @Value("${huggingface.api.key}")
@@ -20,10 +25,12 @@ public class HuggingFaceClient extends BaseClient implements AiClient {
     private String defaultModel;
     
     private final RequestProcessor requestProcessor;
+    private final ObjectMapper objectMapper;
     
     @Autowired
     public HuggingFaceClient(RequestProcessor requestProcessor) {
         this.requestProcessor = requestProcessor;
+        this.objectMapper = new ObjectMapper();
     }
     
     @Override
@@ -47,34 +54,34 @@ public class HuggingFaceClient extends BaseClient implements AiClient {
         
         // Generate properly formatted and escaped JSON
         String requestBody = requestProcessor.generateValidJsonString(hfRequest);
+        log.debug("Sending request to HuggingFace API: {}", requestBody);
             
         String jsonResponse = sendRequest(API_URL, apiKey, requestBody);
+        log.debug("Received response from HuggingFace API: {}", jsonResponse);
         
-        // Parse response for the required fields
-        if (jsonResponse.contains("\"content\"")) {
-            int startIndex = jsonResponse.indexOf("\"content\":") + 11;
-            int endIndex = findClosingQuoteIndex(jsonResponse, startIndex);
-            if (endIndex > startIndex) {
-                return jsonResponse.substring(startIndex, endIndex);
-            }
-        }
-        
-        return "Response from HuggingFace: " + jsonResponse;
-    }
-    
-    // Helper method to find the closing quote of a JSON string value
-    private int findClosingQuoteIndex(String json, int startIndex) {
-        for (int i = startIndex; i < json.length(); i++) {
-            // Skip escaped quotes
-            if (json.charAt(i) == '\\') {
-                i++;
-                continue;
+        try {
+            // Parse response using the model class
+            HuggingFaceResponse response = objectMapper.readValue(jsonResponse, HuggingFaceResponse.class);
+            
+            // Extract content from the first choice's message
+            if (response.getChoices() != null && response.getChoices().length > 0) {
+                HuggingFaceResponse.Choice firstChoice = response.getChoices()[0];
+                if (firstChoice.getMessage() != null) {
+                    String content = firstChoice.getMessage().getContent();
+                    log.debug("Successfully extracted content from response: {}", content);
+                    return content;
+                }
             }
             
-            if (json.charAt(i) == '"') {
-                return i;
-            }
+            // If no valid content found, return the raw response
+            log.warn("No valid content found in response, returning raw response");
+            return "Response from HuggingFace: " + jsonResponse;
+        } catch (Exception e) {
+            // Log the error and return the raw response
+            log.error("Error parsing HuggingFace response: {}", e.getMessage());
+            log.error("Raw response: {}", jsonResponse);
+            log.error("Exception details:", e);
+            return jsonResponse;
         }
-        return -1;
     }
 } 

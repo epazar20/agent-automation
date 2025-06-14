@@ -2,13 +2,15 @@ package com.example.mcpprovider.dto;
 
 import com.example.mcpprovider.enums.FinanceActionType;
 import com.example.mcpprovider.model.Customer;
+import lombok.Data;
 
 import java.util.List;
 
+@Data
 public class ActionAnalysisResponse {
     
     private String content;
-    private String extraContent;
+    private String originalContent;
     private List<FinanceActionType> financeActionTypes;
     private Customer customer;
 
@@ -16,10 +18,10 @@ public class ActionAnalysisResponse {
     public ActionAnalysisResponse() {}
 
     // Constructor with all fields
-    public ActionAnalysisResponse(String content, String extraContent, 
+    public ActionAnalysisResponse(String content, String originalContent, 
                                 List<FinanceActionType> financeActionTypes, Customer customer) {
         this.content = content;
-        this.extraContent = extraContent;
+        this.originalContent = originalContent;
         this.financeActionTypes = financeActionTypes;
         this.customer = customer;
     }
@@ -33,12 +35,12 @@ public class ActionAnalysisResponse {
         this.content = content;
     }
 
-    public String getExtraContent() {
-        return extraContent;
+    public String getOriginalContent() {
+        return originalContent;
     }
 
-    public void setExtraContent(String extraContent) {
-        this.extraContent = extraContent;
+    public void setOriginalContent(String originalContent) {
+        this.originalContent = originalContent;
     }
 
     public List<FinanceActionType> getFinanceActionTypes() {

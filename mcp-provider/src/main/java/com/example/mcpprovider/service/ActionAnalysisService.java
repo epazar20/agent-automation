@@ -95,13 +95,27 @@ public class ActionAnalysisService {
 
             AiProviderResponse aiResponse = aiProviderClient.generateContent(aiRequest);
 
+            // Add extraContent to AI response
+            String aiResponseContent = aiResponse.getContent();
+            if (aiResponseContent.contains("```json")) {
+                int jsonStart = aiResponseContent.indexOf("```json") + 7;
+                int jsonEnd = aiResponseContent.indexOf("```", jsonStart);
+                if (jsonEnd != -1) {
+                    String jsonContent = aiResponseContent.substring(jsonStart, jsonEnd);
+                    JsonNode rootNode = objectMapper.readTree(jsonContent);
+                    ((ObjectNode) rootNode).put("extraContent", request.getContent());
+                    String modifiedJson = objectMapper.writeValueAsString(rootNode);
+                    aiResponseContent = aiResponseContent.substring(0, jsonStart) + "\n" + modifiedJson + "\n" + aiResponseContent.substring(jsonEnd);
+                }
+            }
+
             // 4. Process the response and handle dates - this now returns both actions and modified content
-            ProcessedResponse processedResponse = processAiResponseWithModifications(aiResponse.getContent());
+            ProcessedResponse processedResponse = processAiResponseWithModifications(aiResponseContent, request.getContent());
 
             // 5. Create response
             ActionAnalysisResponse response = new ActionAnalysisResponse();
-            response.setContent(processedResponse.getModifiedContent() != null ? processedResponse.getModifiedContent() : aiResponse.getContent());
-            response.setExtraContent(request.getContent());
+            response.setContent(processedResponse.getModifiedContent() != null ? processedResponse.getModifiedContent() : aiResponseContent);
+            response.setOriginalContent(request.getContent());
             response.setFinanceActionTypes(processedResponse.getActions());
             response.setCustomer(customer);
 
@@ -245,7 +259,7 @@ public class ActionAnalysisService {
         }
     }
 
-    private ProcessedResponse processAiResponseWithModifications(String aiResponse) {
+    private ProcessedResponse processAiResponseWithModifications(String aiResponse, String originalContent) {
         List<FinanceActionType> selectedActions = new ArrayList<>();
         String modifiedContent = aiResponse;
         
@@ -296,8 +310,13 @@ public class ActionAnalysisService {
                             // Get parameters for this action
                             JsonNode actionParams = parametersNode != null ? parametersNode.get(actionTypeStr) : null;
                             
-                            if (actionParams != null) {
+                            if (actionParams != null && actionParams instanceof ObjectNode) {
                                 log.info("Found parameters for {}: {}", actionTypeStr, actionParams);
+                                
+                                // Remove content and extraContent fields if they exist
+                                ((ObjectNode) actionParams).remove("content");
+                                ((ObjectNode) actionParams).remove("extraContent");
+                                
                                 // Validate and process each parameter based on JSON map
                                 actionParams.fields().forEachRemaining(entry -> {
                                     String paramName = entry.getKey();
@@ -309,31 +328,28 @@ public class ActionAnalysisService {
                                         
                                         // Handle enum-like values (separated by |)
                                         if (jsonMapParamStr.contains("|")) {
-                                            String[] allowedValues = jsonMapParamStr.split("\\|");
-                                            Set<String> validValues = new HashSet<>(Arrays.asList(allowedValues));
-                                            
-                                            // Only validate that the value is allowed, let AI choose which one
-                                            if (paramValue != null && !paramValue.isNull() && 
-                                                !validValues.contains(paramValue.asText())) {
-                                                log.warn("Invalid enum value '{}' for parameter '{}'. Must be one of: {}", 
-                                                    paramValue.asText(), paramName, validValues);
-                                                // Don't set to null, let the original AI choice persist if valid
+                                            String[] validValues = jsonMapParamStr.split("\\|");
+                                            if (paramValue != null && paramValue.isTextual()) {
+                                                String actualValue = paramValue.asText();
+                                                boolean isValid = false;
+                                                for (String validValue : validValues) {
+                                                    if (validValue.equals(actualValue)) {
+                                                        isValid = true;
+                                                        break;
+                                                    }
+                                                }
+                                                if (!isValid) {
+                                                    ((ObjectNode) actionParams).putNull(paramName);
+                                                }
                                             }
-                                        }
-                                        // Handle dynamic values (marked with ?)
-                                        else if ("?".equals(jsonMapParamStr)) {
-                                            // Value can be anything or null, no validation needed
-                                            log.debug("Dynamic parameter '{}' with value: {}", 
-                                                paramName, paramValue);
                                         }
                                     }
                                 });
                             }
                             
-                            // Special handling for GENERATE_STATEMENT
                             if (actionType == FinanceActionType.GENERATE_STATEMENT) {
                                 log.info("Handling GENERATE_STATEMENT with hasSendEmail: {}", hasSendEmail);
-                                boolean wasModified = handleGenerateStatement(actionParams, nowInTurkey, currentYear, dateRangeNode, hasSendEmail);
+                                boolean wasModified = handleGenerateStatement(actionParams, nowInTurkey, currentYear, dateRangeNode, hasSendEmail, originalContent);
                                 if (wasModified) {
                                     jsonModified = true;
                                     log.info("GENERATE_STATEMENT parameters were modified");
@@ -346,6 +362,9 @@ public class ActionAnalysisService {
                         }
                     }
                 }
+                
+                // Remove extraContent from root node if it exists
+                ((ObjectNode) rootNode).remove("extraContent");
                 
                 // If JSON was modified, reconstruct the response content
                 if (jsonModified) {
@@ -385,7 +404,7 @@ public class ActionAnalysisService {
     }
 
     private boolean handleGenerateStatement(JsonNode actionParams, ZonedDateTime nowInTurkey, 
-            int currentYear, JsonNode dateRangeNode, boolean hasSendEmail) {
+            int currentYear, JsonNode dateRangeNode, boolean hasSendEmail, String originalContent) {
         boolean modified = false;
         log.info("handleGenerateStatement called with hasSendEmail: {}", hasSendEmail);
         
@@ -393,70 +412,76 @@ public class ActionAnalysisService {
             ObjectNode params = (ObjectNode) actionParams;
             log.info("ActionParams before modification: {}", params);
             
-            // Set endDate to end of current day
-            LocalDateTime endDate = nowInTurkey
+            // Prompt'tan tarih aralığı analizi
+            String content = originalContent;
+            log.info("Analyzing content for date range: {}", content);
+            
+            // Varsayılan değerler
+            int relativeDays = 30; // Varsayılan son 30 gün
+            
+            // "son X yıl/ay/gün" pattern'ini analiz et
+            Pattern pattern = Pattern.compile("son\\s+(\\d+)\\s*(yıl|ay|gün|sene)", Pattern.CASE_INSENSITIVE);
+            Matcher matcher = pattern.matcher(content);
+            
+            if (matcher.find()) {
+                int value = Integer.parseInt(matcher.group(1));
+                String unit = matcher.group(2).toLowerCase();
+                log.info("Found date range in content: {} {}", value, unit);
+                
+                switch (unit) {
+                    case "yıl":
+                    case "sene":
+                        relativeDays = value * 365;
+                        break;
+                    case "ay":
+                        relativeDays = value * 30;
+                        break;
+                    case "gün":
+                        relativeDays = value;
+                        break;
+                }
+                log.info("Calculated relative days: {}", relativeDays);
+            }
+            
+            // Tarihleri hesapla
+            ZonedDateTime endDate = nowInTurkey
                 .withHour(23)
                 .withMinute(59)
                 .withSecond(59)
-                .withNano(0)
-                .toLocalDateTime();
-
-            // Calculate startDate (1 month ago from current date)
-            LocalDateTime startDate = endDate
-                .minusMonths(1)
+                .withNano(0);
+            
+            ZonedDateTime startDate = endDate
+                .minusDays(relativeDays)
                 .withHour(0)
                 .withMinute(0)
                 .withSecond(0)
                 .withNano(0);
-
-            log.info("Calculated date range - Start: {}, End: {}", startDate, endDate);
             
-            // Convert to ISO format without timezone
-            String startDateStr = startDate.format(DATE_FORMATTER);
-            String endDateStr = endDate.format(DATE_FORMATTER);
+            // Tarihleri güncelle
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss");
+            params.put("startDate", startDate.format(formatter));
+            params.put("endDate", endDate.format(formatter));
+            log.info("Updated date range - start: {}, end: {}", startDate.format(formatter), endDate.format(formatter));
             
-            // Validate and correct year if needed
-            if (!startDateStr.startsWith(String.valueOf(currentYear)) || 
-                !endDateStr.startsWith(String.valueOf(currentYear))) {
-                log.warn("Correcting year in dates from AI response");
-                startDateStr = startDateStr.replaceFirst("\\d{4}", String.valueOf(currentYear));
-                endDateStr = endDateStr.replaceFirst("\\d{4}", String.valueOf(currentYear));
-            }
-            
-            // Update both parameters and dateRange
-            params.put("startDate", startDateStr);
-            params.put("endDate", endDateStr);
-            
-            // Ensure customerId is set
-            if (!params.has("customerId") || params.get("customerId").isNull()) {
-                params.put("customerId", "1");
-            }
-            
-            // Add emailFlag if SEND_EMAIL action is present
+            // emailFlag'i güncelle
             if (hasSendEmail) {
-                log.info("Adding emailFlag: true to GENERATE_STATEMENT parameters");
                 params.put("emailFlag", true);
-                modified = true;
-                log.info("emailFlag added successfully, modified flag set to true");
-            } else {
-                log.info("hasSendEmail is false, not adding emailFlag");
+                log.info("Set emailFlag to true due to SEND_EMAIL action");
             }
             
-            log.info("ActionParams after modification: {}", params);
-            
-            // Update dateRange if exists
+            // dateRange'i güncelle
             if (dateRangeNode instanceof ObjectNode) {
                 ObjectNode dateRange = (ObjectNode) dateRangeNode;
-                dateRange.put("startDate", startDateStr);
-                dateRange.put("endDate", endDateStr);
+                dateRange.put("startDate", startDate.format(formatter));
+                dateRange.put("endDate", endDate.format(formatter));
                 dateRange.put("isRelative", true);
-                dateRange.put("relativeDays", 30);
+                dateRange.put("relativeDays", relativeDays);
+                log.info("Updated dateRange with relativeDays: {}", relativeDays);
             }
-        } else {
-            log.warn("actionParams is not an ObjectNode, type: {}", actionParams != null ? actionParams.getClass().getSimpleName() : "null");
+            
+            modified = true;
         }
         
-        log.info("handleGenerateStatement returning modified: {}", modified);
         return modified;
     }
     
@@ -493,7 +518,7 @@ public class ActionAnalysisService {
             }
             
         } catch (Exception e) {
-            System.out.println("Error extracting JSON: " + e.getMessage());
+            log.error("Error extracting JSON: {}", e.getMessage());
         }
         
         return null;
@@ -523,12 +548,12 @@ public class ActionAnalysisService {
                         FinanceActionType actionType = FinanceActionType.valueOf(cleanAction);
                         actions.add(actionType);
                     } catch (IllegalArgumentException e) {
-                        System.out.println("Invalid action type in fallback: " + cleanAction);
+                        log.error("Invalid action type in fallback: {}", cleanAction);
                     }
                 }
             }
         } catch (Exception e) {
-            System.out.println("Fallback extraction failed: " + e.getMessage());
+            log.error("Fallback extraction failed: {}", e.getMessage());
         }
         
         return actions;

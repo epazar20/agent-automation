@@ -19,13 +19,17 @@ public class ActionAnalysisController {
     @PostMapping
     public ResponseEntity<ActionAnalysisResponse> analyzeAction(@Valid @RequestBody ActionAnalysisRequest request) {
         try {
+            if (request == null || request.getContent() == null || request.getContent().trim().isEmpty()) {
+                throw new IllegalArgumentException("Request content cannot be empty");
+            }
+
             ActionAnalysisResponse response = actionAnalysisService.analyzeAction(request);
             return ResponseEntity.ok(response);
         } catch (Exception e) {
             ActionAnalysisResponse errorResponse = new ActionAnalysisResponse();
-            errorResponse.setContent("Internal server error: " + e.getMessage());
-            errorResponse.setExtraContent(request != null ? request.getContent() : "");
-            return ResponseEntity.internalServerError().body(errorResponse);
+            errorResponse.setContent("Error: " + e.getMessage());
+            errorResponse.setOriginalContent(request != null ? request.getContent() : "");
+            return ResponseEntity.badRequest().body(errorResponse);
         }
     }
 
