@@ -1,17 +1,10 @@
 import { AgentType, AgentConfig, LLMType, ModelConfig } from './types';
 
-export const defaultModelConfig: Record<LLMType, Partial<ModelConfig>> = {
-  huggingface: {
-    type: 'huggingface',
-    model: 'deepseek/deepseek-v3-0324',
-    temperature: 0.7,
-    maxTokens: 4096,
-    topP: 1,
-    systemPrompt: '',
-  },
+export const defaultModelConfig: Record<LLMType, ModelConfig> = {
   openai: {
     type: 'openai',
-    model: 'gpt-4',
+    model: 'gpt-4o',
+    apiKey: '',
     temperature: 0.7,
     maxTokens: 4096,
     topP: 1,
@@ -19,7 +12,7 @@ export const defaultModelConfig: Record<LLMType, Partial<ModelConfig>> = {
     presencePenalty: 0,
     systemPrompt: '',
   },
-  gemini: {
+  google: {
     type: 'gemini',
     model: 'gemini-pro',
     temperature: 0.7,
@@ -31,18 +24,18 @@ export const defaultModelConfig: Record<LLMType, Partial<ModelConfig>> = {
   anthropic: {
     type: 'anthropic',
     model: 'claude-3-opus',
+    apiKey: '',
     temperature: 0.7,
     maxTokens: 100000,
     topP: 1,
     systemPrompt: '',
   },
-  llama2: {
-    type: 'llama2',
-    model: 'llama-2-70b-chat',
+  huggingface: {
+    type: 'huggingface',
+    model: 'deepseek/deepseek-v3-0324',
     temperature: 0.7,
     maxTokens: 4096,
     topP: 1,
-    repetitionPenalty: 1.1,
     systemPrompt: '',
   },
 };
@@ -88,7 +81,7 @@ export const defaultAgentConfigs: Record<AgentType, Partial<AgentConfig>> = {
     content: '',
     xAxis: '',
     yAxis: '',
-    modelConfig: defaultModelConfig
+    modelConfig: defaultModelConfig.huggingface
   },
   imageGenerator: {
     name: 'Image Generator',
@@ -187,6 +180,20 @@ export const defaultAgentConfigs: Record<AgentType, Partial<AgentConfig>> = {
     combineOperator: 'AND',
     truePathColor: '#22c55e',  // Yeşil
     falsePathColor: '#ef4444', // Kırmızı
+  },
+  aiActionAnalysis: {
+    name: 'AI Action Analysis',
+    description: 'Finansal işlem analizi ve aksiyon tespiti',
+    selectedCustomer: undefined,
+    systemPrompt: 'Sen bir finansal işlem analizcisin. Verileri prompt\'u analiz edip alınacak aksiyonları tespit etmelisin',
+    modelConfig: {
+      type: 'huggingface',
+      model: 'deepseek/deepseek-v3-0324',
+      temperature: 0.7,
+      maxTokens: 1000,
+      topP: 1,
+      systemPrompt: 'Sen bir finansal işlem analizcisin. Verileri prompt\'u analiz edip alınacak aksiyonları tespit etmelisin',
+    },
   },
 };
 

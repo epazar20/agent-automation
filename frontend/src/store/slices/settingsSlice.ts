@@ -2,21 +2,21 @@ import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 import { Settings } from '../types';
 
 const initialState: Settings = {
-  theme: 'dark',
+  theme: 'light',
   language: 'tr',
   autoSave: true,
-  saveInterval: 5000, // 5 saniye
+  saveInterval: 30000,
   defaultModels: {
-    openai: 'gpt-4',
-    gemini: 'gemini-pro',
+    openai: 'gpt-4o',
+    huggingface: 'deepseek/deepseek-v3-0324',
     anthropic: 'claude-3-opus',
-    llama2: 'llama-2-70b-chat',
+    google: 'gemini-pro',
   },
   maxTokenLimits: {
-    openai: 4096,
-    gemini: 32768,
-    anthropic: 100000,
-    llama2: 4096,
+    openai: 128000,
+    huggingface: 32768,
+    anthropic: 200000,
+    google: 32768,
   },
   agentDefaults: {
     webScraper: {},
@@ -28,13 +28,16 @@ const initialState: Settings = {
     translator: {},
     youtubeSummarizer: {},
     researchAgent: {},
-    result: {}
+    result: {},
+    supabase: {},
+    conditional: {},
+    aiActionAnalysis: {},
   },
   security: {
     encryptApiKeys: true,
     allowExternalRequests: true,
-    allowFileSystem: false
-  }
+    allowFileSystem: false,
+  },
 };
 
 const settingsSlice = createSlice({

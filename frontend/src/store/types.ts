@@ -11,7 +11,8 @@ export type AgentType =
   | 'researchAgent'
   | 'supabase'
   | 'result'
-  | 'conditional';
+  | 'conditional'
+  | 'aiActionAnalysis';
 
 // LLM Model Tipleri
 export type LLMType = 'openai' | 'huggingface' | 'anthropic' | 'google';
@@ -174,6 +175,42 @@ export interface ConditionalConfig extends BaseAgentConfig {
   falsePathColor: string;
 }
 
+// Customer Types
+export interface Customer {
+  id: number;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  status: string;
+  createdAt: number[];
+  updatedAt: number[];
+  fullName: string;
+}
+
+export interface CustomerSearchResponse {
+  customers: Customer[];
+}
+
+// AI Action Analysis Types
+export interface AIActionAnalysisConfig extends BaseAgentConfig {
+  selectedCustomer?: Customer;
+  systemPrompt: string;
+}
+
+export interface ActionAnalysisResponse {
+  content: string;
+  originalContent: string;
+  financeActionTypes: string[];
+  customer: {
+    customerNo: string;
+    accountId: string | null;
+    name: string;
+    surname: string;
+    email: string;
+  };
+}
+
 export type AgentConfig =
   | WebScraperConfig
   | WebSearcherConfig
@@ -186,7 +223,8 @@ export type AgentConfig =
   | ResearchAgentConfig
   | ResultConfig
   | SupabaseConfig
-  | ConditionalConfig;
+  | ConditionalConfig
+  | AIActionAnalysisConfig;
 
 // Node Types
 export type NodeType = 'general' | 'business';
@@ -221,6 +259,12 @@ export interface ExecutionResult {
   output?: any;
   error?: string;
   conditionResult?: boolean;
+  executionTime?: number;
+  tokenUsage?: {
+    prompt: number;
+    completion: number;
+    total: number;
+  };
 }
 
 export interface ExecutionResults {
@@ -232,6 +276,8 @@ export interface FlowState {
   nodes: AgentNode[];
   edges: FlowConnection[];
   executionResults: ExecutionResults;
+  selectedNodeId: string | null;
+  isRunning: boolean;
 }
 
 // Geçmiş
@@ -302,9 +348,21 @@ export interface FirecrawlMcpConfig extends BaseMcpConfig {
 
 export type McpConfig = SupabaseMcpConfig | GithubMcpConfig | FirecrawlMcpConfig;
 
+// Customer State
+export interface CustomerState {
+  activeCustomer: Customer | null;
+  searchResults: Customer[];
+  isSearching: boolean;
+  financeActionTypes: string[];
+  lastActionAnalysisResponse: ActionAnalysisResponse | null;
+  actionResultContent: string | null;
+  activeFinanceActionTypes: string[];
+}
+
 // Ana State
 export interface RootState {
   flow: FlowState;
   history: HistoryEntry[];
   settings: Settings;
+  customer: CustomerState;
 } 

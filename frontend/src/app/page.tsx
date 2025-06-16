@@ -1,9 +1,8 @@
 "use client";
 
 import { useState, useMemo } from 'react';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { AgentType } from '@/store/types';
 import { defaultAgentConfigs } from '@/store/defaultConfigs';
 import FlowEditor from '@/components/flow/FlowEditor';
@@ -18,7 +17,7 @@ export default function Home() {
     const query = searchQuery.toLowerCase();
     return (Object.keys(defaultAgentConfigs) as AgentType[]).filter(agentType => {
       const config = defaultAgentConfigs[agentType];
-      const isBusinessAgent = agentType === 'supabase';
+      const isBusinessAgent = agentType === 'supabase' || agentType === 'aiActionAnalysis';
       const isCommonNode = agentType === 'result' || agentType === 'conditional';
       const matchesActiveTab = (activeTab === 'business' && isBusinessAgent) || (activeTab === 'general' && !isBusinessAgent);
       

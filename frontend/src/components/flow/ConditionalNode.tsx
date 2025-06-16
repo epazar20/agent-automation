@@ -67,7 +67,7 @@ export default function ConditionalNode({ id, data }: ConditionalNodeProps) {
       id,
       updates: {
         data: {
-          ...data,
+          type: 'conditional' as const,
           config,
           nodeType: data.nodeType,
         },

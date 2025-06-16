@@ -15,6 +15,7 @@ import ReactFlow, {
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '@/store/types';
 import { addNode, updateNodePosition, addEdge, removeNode, removeEdge, updateExecutionResult } from '@/store/slices/flowSlice';
+import { setFinanceActionTypes, setLastActionAnalysisResponse, setActionResultContent, setActiveFinanceActionTypes } from '@/store/slices/customerSlice';
 import { AgentType, AgentNode, NodeType, FlowConnection, ExecutionResults, AgentConfig } from '@/store/types';
 import { createDefaultAgentConfig, defaultAgentConfigs } from '@/store/defaultConfigs';
 import { executeAgent } from '@/api/agents';
@@ -223,7 +224,7 @@ function Flow() {
         data: {
           type: agentType,
           config: createDefaultAgentConfig(agentType),
-          nodeType: agentType === 'supabase' ? 'business' : 'general',
+          nodeType: (agentType === 'supabase' || agentType === 'aiActionAnalysis') ? 'business' : 'general',
         },
       };
 
@@ -423,6 +424,21 @@ function Flow() {
 
           // Execute the node
           const result = await executeAgent(node.data.type, configToSend);
+
+          // Handle special processing for aiActionAnalysis
+          if (node.data.type === 'aiActionAnalysis' && result) {
+            // Update Redux with finance action types and customer info
+            if (result.financeActionTypes) {
+              dispatch(setFinanceActionTypes(result.financeActionTypes));
+              dispatch(setActiveFinanceActionTypes(result.financeActionTypes));
+            }
+            if (result.content) {
+              dispatch(setActionResultContent(result.content));
+            }
+            if (result.customer) {
+              dispatch(setLastActionAnalysisResponse(result));
+            }
+          }
 
           // Store the result in our map
           resultMap.set(node.id, {

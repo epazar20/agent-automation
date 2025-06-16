@@ -1,12 +1,12 @@
 "use client";
 
+import React, { useState, useEffect } from 'react';
 import { Handle, Position } from 'reactflow';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useDispatch, useSelector } from 'react-redux';
 import { updateNode, removeNode } from '@/store/slices/flowSlice';
@@ -36,12 +36,16 @@ import {
   TranslatorConfig,
   ModelConfig,
   BaseAgentConfig,
-  NodeType
+  NodeType,
+  AIActionAnalysisConfig,
+  Customer
 } from '@/store/types';
 import { toast } from 'sonner';
 import { defaultAgentConfigs, createDefaultAgentConfig } from '@/store/defaultConfigs';
 import ModelConfigForm from './ModelConfigForm';
 import { RootState } from '@/store';
+import CustomerSearch from '@/components/ui/customer-search';
+import { setActiveCustomer, setFinanceActionTypes, setLastActionAnalysisResponse } from '@/store/slices/customerSlice';
 
 type AIAgentNodeProps = {
   id: string;
@@ -136,6 +140,19 @@ export default function AIAgentNode({ id, data }: AIAgentNodeProps) {
     });
   };
 
+  const updateAIActionAnalysisConfig = (updates: Partial<AIActionAnalysisConfig>) => {
+    const currentConfig = config as unknown as AIActionAnalysisConfig;
+    setConfig({
+      ...currentConfig,
+      ...updates,
+    });
+  };
+
+  const handleCustomerSelect = (customer: Customer) => {
+    updateAIActionAnalysisConfig({ selectedCustomer: customer });
+    dispatch(setActiveCustomer(customer));
+  };
+
   const getNodeColor = () => {
     // Normal agent node için standart renk seçimi
     switch (data.type) {
@@ -159,6 +176,8 @@ export default function AIAgentNode({ id, data }: AIAgentNodeProps) {
         return 'bg-teal-100 dark:bg-teal-900';
       case 'supabase':
         return 'bg-pink-100 dark:bg-pink-900';
+      case 'aiActionAnalysis':
+        return 'bg-amber-100 dark:bg-amber-900';
       default:
         return 'bg-gray-100 dark:bg-gray-800';
     }
@@ -187,6 +206,8 @@ export default function AIAgentNode({ id, data }: AIAgentNodeProps) {
         return '🔍';
       case 'supabase':
         return '💾';
+      case 'aiActionAnalysis':
+        return '💼';
       default:
         return '?';
     }
@@ -433,6 +454,31 @@ export default function AIAgentNode({ id, data }: AIAgentNodeProps) {
                       <Label htmlFor="functions">Edge Functions</Label>
                     </div>
                   </div>
+                </div>
+              </>
+            )}
+
+            {/* AI Action Analysis yapılandırması */}
+            {data.type === 'aiActionAnalysis' && (
+              <>
+                <div className="space-y-2">
+                  <CustomerSearch
+                    onCustomerSelect={handleCustomerSelect}
+                    placeholder="Müşteri ara..."
+                    label="Müşteri Seçimi"
+                    selectedCustomer={(config as AIActionAnalysisConfig).selectedCustomer}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Sistem Prompt</Label>
+                  <textarea
+                    className="w-full p-2 rounded-md border border-input bg-background"
+                    value={(config as AIActionAnalysisConfig).systemPrompt || ''}
+                    onChange={(e) => updateAIActionAnalysisConfig({ systemPrompt: e.target.value })}
+                    placeholder="Sistem prompt'unu girin"
+                    rows={3}
+                  />
                 </div>
               </>
             )}

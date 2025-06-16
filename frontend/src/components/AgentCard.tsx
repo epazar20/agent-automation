@@ -15,6 +15,7 @@ const agentIcons: Record<AgentType, string> = {
   result: '📋',
   supabase: '🔷',
   conditional: '🔀',
+  aiActionAnalysis: '💼',
 };
 
 // Agent renkleri
@@ -31,6 +32,7 @@ const agentColors: Record<AgentType, string> = {
   result: 'bg-gray-100 dark:bg-gray-900',
   supabase: 'bg-emerald-100 dark:bg-emerald-900',
   conditional: 'bg-violet-100 dark:bg-violet-900',
+  aiActionAnalysis: 'bg-amber-100 dark:bg-amber-900',
 };
 
 interface AgentCardProps {

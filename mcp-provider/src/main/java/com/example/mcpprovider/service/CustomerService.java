@@ -5,6 +5,7 @@ import com.example.mcpprovider.dto.CustomerDto;
 import com.example.mcpprovider.entity.Customer;
 import com.example.mcpprovider.mapper.CustomerMapper;
 import com.example.mcpprovider.repository.CustomerRepository;
+import com.example.mcpprovider.specification.CustomerSpecification;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -21,6 +22,12 @@ public class CustomerService {
     
     private final CustomerRepository customerRepository;
     private final CustomerMapper customerMapper;
+    
+    public List<CustomerDto> searchCustomers(String searchText) {
+        log.debug("Searching customers with text: {}", searchText);
+        List<Customer> customers = customerRepository.findAll(CustomerSpecification.searchCustomers(searchText));
+        return customerMapper.toDtoList(customers);
+    }
     
     public List<CustomerDto> getAllCustomers() {
         log.debug("Getting all customers");

@@ -2,6 +2,7 @@ package com.example.mcpprovider.controller;
 
 import com.example.mcpprovider.dto.CustomerDetailDto;
 import com.example.mcpprovider.dto.CustomerDto;
+import com.example.mcpprovider.dto.CustomerSearchRequestDto;
 import com.example.mcpprovider.service.CustomerService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -21,6 +22,13 @@ import java.util.Optional;
 public class CustomerController {
     
     private final CustomerService customerService;
+    
+    @PostMapping("/search")
+    public ResponseEntity<List<CustomerDto>> searchCustomers(@RequestBody CustomerSearchRequestDto searchRequest) {
+        log.info("POST /api/customers/search - Searching customers with text: {}", searchRequest.getSearchText());
+        List<CustomerDto> customers = customerService.searchCustomers(searchRequest.getSearchText());
+        return ResponseEntity.ok(customers);
+    }
     
     @GetMapping
     public ResponseEntity<List<CustomerDto>> getAllCustomers() {
