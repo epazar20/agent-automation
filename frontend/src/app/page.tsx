@@ -17,7 +17,7 @@ export default function Home() {
     const query = searchQuery.toLowerCase();
     return (Object.keys(defaultAgentConfigs) as AgentType[]).filter(agentType => {
       const config = defaultAgentConfigs[agentType];
-      const isBusinessAgent = agentType === 'supabase' || agentType === 'aiActionAnalysis';
+      const isBusinessAgent = agentType === 'aiActionAnalysis' || agentType === 'mcpSupplierAgent';
       const isCommonNode = agentType === 'result' || agentType === 'conditional';
       const matchesActiveTab = (activeTab === 'business' && isBusinessAgent) || (activeTab === 'general' && !isBusinessAgent);
       
@@ -26,7 +26,7 @@ export default function Home() {
         (config?.description || '').toLowerCase().includes(query)
       );
     });
-  }, [searchQuery, activeTab]);
+  }, [activeTab]);
 
   const commonNodes: AgentType[] = ['result', 'conditional'];
 

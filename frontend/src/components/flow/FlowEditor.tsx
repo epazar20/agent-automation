@@ -15,7 +15,7 @@ import ReactFlow, {
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '@/store/types';
 import { addNode, updateNodePosition, addEdge, removeNode, removeEdge, updateExecutionResult } from '@/store/slices/flowSlice';
-import { setFinanceActionTypes, setLastActionAnalysisResponse, setActionResultContent, setActiveFinanceActionTypes } from '@/store/slices/customerSlice';
+import { setFinanceActionTypes, setLastActionAnalysisResponse, setActionResultContent, setActiveFinanceActionTypes, setActiveCustomer } from '@/store/slices/customerSlice';
 import { AgentType, AgentNode, NodeType, FlowConnection, ExecutionResults, AgentConfig } from '@/store/types';
 import { createDefaultAgentConfig, defaultAgentConfigs } from '@/store/defaultConfigs';
 import { executeAgent } from '@/api/agents';
@@ -136,7 +136,7 @@ const evaluateConditionalNode = (config: any, data: any) => {
 function Flow() {
   const dispatch = useDispatch();
   const { nodes, edges, executionResults } = useSelector((state: RootState) => state.flow);
-  const { project } = useReactFlow();
+  const { screenToFlowPosition } = useReactFlow();
 
   // Cache conditional evaluation results to prevent multiple evaluations
   const conditionalResults = useMemo(() => {
@@ -209,12 +209,9 @@ function Flow() {
       const agentType = event.dataTransfer.getData('application/reactflow') as AgentType;
       if (!agentType) return;
 
-      const reactFlowBounds = document.querySelector('.react-flow')?.getBoundingClientRect();
-      if (!reactFlowBounds) return;
-
-      const position = project({
-        x: event.clientX - reactFlowBounds.left,
-        y: event.clientY - reactFlowBounds.top,
+      const position = screenToFlowPosition({
+        x: event.clientX,
+        y: event.clientY,
       });
 
       const newNode: AgentNode = {
@@ -224,14 +221,14 @@ function Flow() {
         data: {
           type: agentType,
           config: createDefaultAgentConfig(agentType),
-          nodeType: (agentType === 'supabase' || agentType === 'aiActionAnalysis') ? 'business' : 'general',
+          nodeType: ( agentType === 'aiActionAnalysis' || agentType === 'mcpSupplierAgent') ? 'business' : 'general',
         },
       };
 
       dispatch(addNode(newNode));
       toast.success(`${defaultAgentConfigs[agentType].name} eklendi`);
     },
-    [project, dispatch],
+    [screenToFlowPosition, dispatch],
   );
 
   const onDragOver = useCallback((event: React.DragEvent) => {
@@ -423,7 +420,19 @@ function Flow() {
           }
 
           // Execute the node
+          console.log(`🚀 FlowEditor - About to execute node:`, {
+            nodeId: node.id,
+            nodeType: node.data.type,
+            configToSend
+          });
+          
           const result = await executeAgent(node.data.type, configToSend);
+          
+          console.log(`✅ FlowEditor - Node execution completed:`, {
+            nodeId: node.id,
+            nodeType: node.data.type,
+            result
+          });
 
           // Handle special processing for aiActionAnalysis
           if (node.data.type === 'aiActionAnalysis' && result) {
@@ -437,6 +446,21 @@ function Flow() {
             }
             if (result.customer) {
               dispatch(setLastActionAnalysisResponse(result));
+              // Set active customer for subsequent nodes
+              dispatch(setActiveCustomer(result.customer));
+              console.log('✅ FlowEditor - Set active customer from AI Action Analysis:', result.customer);
+            }
+          }
+
+          // Handle special processing for mcpSupplierAgent
+          if (node.data.type === 'mcpSupplierAgent' && result) {
+            // Update Redux with customer info if available
+            if (result.customer) {
+              dispatch(setActiveCustomer(result.customer));
+            }
+            // Store transaction results
+            if (result.transactions) {
+              dispatch(setActionResultContent(JSON.stringify(result, null, 2)));
             }
           }
 

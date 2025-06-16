@@ -18,27 +18,31 @@ interface CustomerSearchProps {
   placeholder?: string;
   label?: string;
   selectedCustomer?: Customer | null;
+  readonly?: boolean;
 }
 
 export default function CustomerSearch({ 
   onCustomerSelect, 
   placeholder = "Müşteri ara...",
   label = "Müşteri Seçimi",
-  selectedCustomer
+  selectedCustomer,
+  readonly = false
 }: CustomerSearchProps) {
   const dispatch = useDispatch();
-  const { activeCustomer, searchResults, isSearching } = useSelector((state: RootState) => state.customer);
+  const searchRef = useRef<HTMLDivElement>(null);
   
-  const [searchText, setSearchText] = useState('');
+  // Local state
+  const [searchText, setSearchText] = useState<string>('');
   const [showResults, setShowResults] = useState(false);
   const [debounceTimer, setDebounceTimer] = useState<NodeJS.Timeout | null>(null);
-  
-  const searchRef = useRef<HTMLDivElement>(null);
+
+  // Redux state
+  const { searchResults, isSearching, activeCustomer } = useSelector((state: RootState) => state.customer);
 
   // Update searchText when activeCustomer changes (for external updates)
   useEffect(() => {
     if (activeCustomer) {
-      setSearchText(activeCustomer.fullName);
+      setSearchText(activeCustomer.fullName || '');
     } else {
       setSearchText('');
     }
@@ -71,7 +75,7 @@ export default function CustomerSearch({
       clearTimeout(debounceTimer);
     }
 
-    if (searchText.trim().length >= 2) {
+    if (searchText && searchText.trim().length >= 2) {
       const timer = setTimeout(async () => {
         try {
           dispatch(setIsSearching(true));
@@ -101,7 +105,7 @@ export default function CustomerSearch({
 
   const handleCustomerSelect = (customer: Customer) => {
     dispatch(setActiveCustomer(customer));
-    setSearchText(customer.fullName);
+    setSearchText(customer.fullName || '');
     setShowResults(false);
     dispatch(setSearchResults([]));
     onCustomerSelect?.(customer);
@@ -116,7 +120,7 @@ export default function CustomerSearch({
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
+    const value = e.target.value || '';
     setSearchText(value);
     
     // If user clears the input, clear the active customer
@@ -126,7 +130,7 @@ export default function CustomerSearch({
     }
     
     // If user starts typing and there's an active customer, clear it (unless they're typing the same name)
-    if (activeCustomer && value.trim() !== activeCustomer.fullName) {
+    if (activeCustomer && value.trim() !== (activeCustomer.fullName || '')) {
       dispatch(setActiveCustomer(null));
     }
   };
@@ -138,17 +142,18 @@ export default function CustomerSearch({
         <div className="relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
           <Input
-            value={searchText}
+            value={searchText || ''}
             onChange={handleInputChange}
             placeholder={placeholder}
             className="pl-10 pr-10"
             onFocus={() => {
-              if (searchResults.length > 0) {
+              if (searchResults.length > 0 && !readonly) {
                 setShowResults(true);
               }
             }}
+            disabled={readonly}
           />
-          {activeCustomer && (
+          {activeCustomer && !readonly && (
             <Button
               size="sm"
               variant="ghost"
@@ -158,13 +163,13 @@ export default function CustomerSearch({
               <X className="h-3 w-3" />
             </Button>
           )}
-          {isSearching && (
+          {isSearching && !readonly && (
             <Loader2 className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 animate-spin" />
           )}
         </div>
 
         {/* Search Results */}
-        {showResults && searchResults.length > 0 && (
+        {showResults && searchResults.length > 0 && !readonly && (
           <Card className="absolute top-full left-0 right-0 z-50 mt-1 max-h-60 overflow-y-auto">
             <CardContent className="p-0">
               {searchResults.map((customer) => (

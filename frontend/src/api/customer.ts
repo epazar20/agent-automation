@@ -32,6 +32,17 @@ export async function executeActionAnalysis(
   customerNo: string
 ): Promise<ActionAnalysisResponse> {
   try {
+    console.log('🔥 executeActionAnalysis - Starting API call:', {
+      endpoint: `${API_BASE_URL}/action-analysis`,
+      payload: {
+        content,
+        model,
+        maxTokens,
+        temperature,
+        customerNo,
+      }
+    });
+
     const response = await fetch(`${API_BASE_URL}/action-analysis`, {
       method: 'POST',
       headers: {
@@ -46,14 +57,18 @@ export async function executeActionAnalysis(
       }),
     });
 
+    console.log('📡 executeActionAnalysis - Response status:', response.status);
+
     if (!response.ok) {
+      console.error('❌ executeActionAnalysis - HTTP error:', response.status, response.statusText);
       throw new Error(`HTTP error! status: ${response.status}`);
     }
 
     const result = await response.json();
+    console.log('✅ executeActionAnalysis - Success response:', result);
     return result;
   } catch (error) {
-    console.error('Action analysis error:', error);
+    console.error('❌ executeActionAnalysis - Error:', error);
     throw error;
   }
 } 

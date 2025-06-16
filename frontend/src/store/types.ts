@@ -9,10 +9,10 @@ export type AgentType =
   | 'translator'
   | 'youtubeSummarizer'
   | 'researchAgent'
-  | 'supabase'
-  | 'result'
+  | 'aiActionAnalysis'
+  | 'mcpSupplierAgent'
   | 'conditional'
-  | 'aiActionAnalysis';
+  | 'result';
 
 // LLM Model Tipleri
 export type LLMType = 'openai' | 'huggingface' | 'anthropic' | 'google';
@@ -145,18 +145,6 @@ export interface ResultConfig extends BaseAgentConfig {
   maxHistoryLength?: number;
 }
 
-export interface SupabaseConfig extends BaseAgentConfig {
-  apiUrl: string;
-  apiKey: string;
-  useAnon: boolean;
-  capabilities: {
-    database: boolean;
-    auth: boolean;
-    storage: boolean;
-    functions: boolean;
-  };
-}
-
 export interface ConditionalConfig extends BaseAgentConfig {
   conditions: Array<{
     id: string;
@@ -194,7 +182,7 @@ export interface CustomerSearchResponse {
 
 // AI Action Analysis Types
 export interface AIActionAnalysisConfig extends BaseAgentConfig {
-  selectedCustomer?: Customer;
+  selectedCustomer?: Customer | null;
 }
 
 export interface ActionAnalysisResponse {
@@ -221,9 +209,9 @@ export type AgentConfig =
   | YoutubeSummarizerConfig
   | ResearchAgentConfig
   | ResultConfig
-  | SupabaseConfig
   | ConditionalConfig
-  | AIActionAnalysisConfig;
+  | AIActionAnalysisConfig
+  | MCPSupplierAgentConfig;
 
 // Node Types
 export type NodeType = 'general' | 'business';
@@ -356,6 +344,43 @@ export interface CustomerState {
   lastActionAnalysisResponse: ActionAnalysisResponse | null;
   actionResultContent: string | null;
   activeFinanceActionTypes: string[];
+}
+
+// MCP Action Types
+export type MCPActionType = 'GENERATE_STATEMENT';
+
+export interface MCPActionConfig {
+  type: MCPActionType;
+  label: string;
+  endpoint: string;
+}
+
+// MCP Supplier Agent Configuration
+export interface MCPSupplierAgentConfig extends BaseAgentConfig {
+  actionType: MCPActionType;
+  selectedCustomer?: Customer | null;
+  parsedParameters?: any;
+}
+
+// Transaction Response Types
+export interface Transaction {
+  id: number;
+  accountId: string;
+  transactionType: string;
+  category: string;
+  direction: string;
+  amount: number;
+  currency: string;
+  description: string;
+  counterpartyName: string;
+  counterpartyIban: string;
+  transactionDate: number[];
+}
+
+export interface StatementResponse {
+  customer: Customer;
+  transactions: Transaction[];
+  attachmentIds: number[];
 }
 
 // Ana State

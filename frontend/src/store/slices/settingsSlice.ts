@@ -29,9 +29,9 @@ const initialState: Settings = {
     youtubeSummarizer: {},
     researchAgent: {},
     result: {},
-    supabase: {},
     conditional: {},
     aiActionAnalysis: {},
+    mcpSupplierAgent: {}
   },
   security: {
     encryptApiKeys: true,

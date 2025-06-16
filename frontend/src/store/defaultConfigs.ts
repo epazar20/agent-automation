@@ -146,18 +146,17 @@ export const defaultAgentConfigs: Record<AgentType, Partial<AgentConfig>> = {
     includeSourceLinks: true,
     format: 'markdown',
   },
-  supabase: {
-    name: 'Supabase Agent',
-    description: 'Veritabanı ve backend işlemleri',
-    modelConfig: defaultModelConfig.openai,
-    apiUrl: '',
-    apiKey: '',
-    useAnon: false,
-    capabilities: {
-      database: true,
-      auth: false,
-      storage: false,
-      functions: false,
+  mcpSupplierAgent: {
+    name: 'MCP Supplier Agent',
+    description: 'MCP protokolü ile tedarikçi entegrasyonu',
+    selectedCustomer: undefined,
+    modelConfig: {
+      type: 'huggingface',
+      model: 'deepseek/deepseek-v3-0324',
+      temperature: 0.7,
+      maxTokens: 1000,
+      topP: 1,
+      systemPrompt: 'Sen bir MCP tedarikçi asistanısın. Müşteri verilerini analiz edip tedarikçi önerilerinde bulunursun.',
     },
   },
   conditional: {

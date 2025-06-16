@@ -11,11 +11,11 @@ const agentIcons: Record<AgentType, string> = {
   textGenerator: '📝',
   translator: '🌐',
   youtubeSummarizer: '📺',
-  researchAgent: '📚',
-  result: '📋',
-  supabase: '🔷',
+  researchAgent: '🔬',
+  aiActionAnalysis: '🎯',
+  mcpSupplierAgent: '⚡',
   conditional: '🔀',
-  aiActionAnalysis: '💼',
+  result: '📋',
 };
 
 // Agent renkleri
@@ -28,11 +28,11 @@ const agentColors: Record<AgentType, string> = {
   textGenerator: 'bg-orange-100 dark:bg-orange-900',
   translator: 'bg-cyan-100 dark:bg-cyan-900',
   youtubeSummarizer: 'bg-red-100 dark:bg-red-900',
-  researchAgent: 'bg-indigo-100 dark:bg-indigo-900',
+  researchAgent: 'bg-teal-100 dark:bg-teal-900',
+  aiActionAnalysis: 'bg-indigo-100 dark:bg-indigo-900',
+  mcpSupplierAgent: 'bg-violet-100 dark:bg-violet-900',
+  conditional: 'bg-slate-100 dark:bg-slate-900',
   result: 'bg-gray-100 dark:bg-gray-900',
-  supabase: 'bg-emerald-100 dark:bg-emerald-900',
-  conditional: 'bg-violet-100 dark:bg-violet-900',
-  aiActionAnalysis: 'bg-amber-100 dark:bg-amber-900',
 };
 
 interface AgentCardProps {

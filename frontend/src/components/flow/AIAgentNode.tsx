@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Handle, Position } from 'reactflow';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -38,10 +38,12 @@ import {
   BaseAgentConfig,
   NodeType,
   AIActionAnalysisConfig,
+  MCPSupplierAgentConfig,
   Customer
 } from '@/store/types';
 import { toast } from 'sonner';
 import { defaultAgentConfigs, createDefaultAgentConfig } from '@/store/defaultConfigs';
+import { getMCPActionConfig, parseContentForAction } from '@/store/mcpConstants';
 import ModelConfigForm from './ModelConfigForm';
 import { RootState } from '@/store';
 import CustomerSearch from '@/components/ui/customer-search';
@@ -55,18 +57,6 @@ type AIAgentNodeProps = {
     nodeType: NodeType;
   };
 };
-
-export interface SupabaseConfig extends BaseAgentConfig {
-  apiUrl: string;
-  apiKey: string;
-  useAnon: boolean;
-  capabilities: {
-    database: boolean;
-    auth: boolean;
-    storage: boolean;
-    functions: boolean;
-  };
-}
 
 export default function AIAgentNode({ id, data }: AIAgentNodeProps) {
   const dispatch = useDispatch();
@@ -87,9 +77,23 @@ export default function AIAgentNode({ id, data }: AIAgentNodeProps) {
     state.flow.executionResults[id]?.output || null
   );
 
+  // Get active customer from redux
+  const activeCustomer = useSelector((state: RootState) => state.customer.activeCustomer);
+
   const isProcessing = executionStatus === 'running';
   const hasContent = executionResult?.content;
   const hasChart = data.type === 'dataAnalyst' && executionResult?.base64Image;
+
+  // MCP Supplier Agent config update function
+  const updateMCPSupplierAgentConfig = useCallback((updates: Partial<MCPSupplierAgentConfig>) => {
+    setConfig(prevConfig => {
+      const currentConfig = prevConfig as unknown as MCPSupplierAgentConfig;
+      return {
+        ...currentConfig,
+        ...updates,
+      };
+    });
+  }, []);
 
   // Find previous node's output content if available
   useEffect(() => {
@@ -98,11 +102,55 @@ export default function AIAgentNode({ id, data }: AIAgentNodeProps) {
       if (sourceEdge) {
         const prevResult = executionResults[sourceEdge.source];
         if (prevResult && prevResult.output && prevResult.output.content) {
-          setConfig(prev => ({ ...prev, content: prevResult.output.content }));
+          const contentToSet = prevResult.output.content;
+          
+          // MCP Supplier Agent için content preprocessing
+          if (data.type === 'mcpSupplierAgent') {
+            const mcpConfig = config as MCPSupplierAgentConfig;
+            
+            // If there's an active customer but no selected customer, set it first
+            if (activeCustomer && !mcpConfig.selectedCustomer) {
+              console.log('🔄 MCP Setting active customer as selected customer from previous node:', activeCustomer);
+              updateMCPSupplierAgentConfig({ 
+                selectedCustomer: activeCustomer,
+                content: contentToSet 
+              });
+              return; // Don't set content again below
+            }
+            
+            const parsedParams = parseContentForAction(contentToSet, mcpConfig.actionType);
+            
+            if (parsedParams) {
+              // Add customerId if not present
+              if (!parsedParams.customerId) {
+                // Use active customer first, then selected customer
+                const customerToUse = activeCustomer || mcpConfig.selectedCustomer;
+                if (customerToUse && customerToUse.id) {
+                  parsedParams.customerId = customerToUse.id.toString();
+                  console.log('✅ MCP Added customerId from customer:', parsedParams.customerId, customerToUse.fullName);
+                }
+              }
+              
+              // Only update if different
+              if (mcpConfig.content !== contentToSet || 
+                  JSON.stringify(mcpConfig.parsedParameters) !== JSON.stringify(parsedParams)) {
+                updateMCPSupplierAgentConfig({ 
+                  parsedParameters: parsedParams,
+                  content: contentToSet 
+                });
+              }
+              return; // Don't set content again below
+            }
+          }
+          
+          // Only update if content is different
+          if ((config as any).content !== contentToSet) {
+            setConfig(prev => ({ ...prev, content: contentToSet }));
+          }
         }
       }
     }
-  }, [edges, executionResults, id, data.type]);
+  }, [edges, executionResults, id, data.type, config, updateMCPSupplierAgentConfig, activeCustomer]);
 
   useEffect(() => {
     if (data.config) {
@@ -110,11 +158,63 @@ export default function AIAgentNode({ id, data }: AIAgentNodeProps) {
     }
   }, [data.config]);
 
-  const updateConfig = <T extends AgentConfig>(updates: Partial<T>) => {
+  // MCP Supplier Agent için manual content parsing
+  useEffect(() => {
+    if (data.type === 'mcpSupplierAgent') {
+      const mcpConfig = config as MCPSupplierAgentConfig;
+      
+      // If there's an active customer but no selected customer, set it
+      if (activeCustomer && !mcpConfig.selectedCustomer) {
+        console.log('🔄 MCP Setting active customer as selected customer:', activeCustomer);
+        updateMCPSupplierAgentConfig({ selectedCustomer: activeCustomer });
+        return; // Exit early to avoid double processing
+      }
+      
+      console.log('🔍 MCP Manual Content Parsing:', {
+        content: mcpConfig.content,
+        actionType: mcpConfig.actionType,
+        selectedCustomer: mcpConfig.selectedCustomer,
+        activeCustomer: activeCustomer
+      });
+      
+      if (mcpConfig.content) {
+        const parsedParams = parseContentForAction(mcpConfig.content, mcpConfig.actionType);
+        console.log('🎯 MCP Manual Parsing Result:', parsedParams);
+        
+        if (parsedParams) {
+          // Add customerId if not present
+          if (!parsedParams.customerId) {
+            // Use active customer first, then selected customer
+            const customerToUse = activeCustomer || mcpConfig.selectedCustomer;
+            if (customerToUse && customerToUse.id) {
+              parsedParams.customerId = customerToUse.id.toString();
+              console.log('✅ MCP Added customerId from customer:', parsedParams.customerId, customerToUse.fullName);
+            }
+          }
+          
+          // Only update if parsedParameters is different
+          if (JSON.stringify(mcpConfig.parsedParameters) !== JSON.stringify(parsedParams)) {
+            console.log('🔄 MCP Updating parsedParameters:', parsedParams);
+            updateMCPSupplierAgentConfig({ 
+              parsedParameters: parsedParams 
+            });
+          } else {
+            console.log('⏭️ MCP parsedParameters unchanged');
+          }
+        } else {
+          console.log('❌ MCP No valid parameters found');
+        }
+      } else {
+        console.log('❌ MCP No content to parse');
+      }
+    }
+  }, [config.content, data.type, updateMCPSupplierAgentConfig, activeCustomer]);
+
+  const updateConfig = (updates: Partial<AgentConfig>) => {
     setConfig(prevConfig => ({
       ...prevConfig,
       ...updates,
-    }) as T);
+    }));
   };
 
   const updateModelConfig = (updates: Partial<ModelConfig>) => {
@@ -128,18 +228,6 @@ export default function AIAgentNode({ id, data }: AIAgentNodeProps) {
     setConfig(updatedConfig as AgentConfig);
   };
 
-  const updateSupabaseConfig = (updates: Partial<SupabaseConfig>) => {
-    const currentConfig = config as unknown as SupabaseConfig;
-    setConfig({
-      ...currentConfig,
-      ...updates,
-      capabilities: {
-        ...currentConfig.capabilities,
-        ...(updates.capabilities || {}),
-      },
-    });
-  };
-
   const updateAIActionAnalysisConfig = (updates: Partial<AIActionAnalysisConfig>) => {
     const currentConfig = config as unknown as AIActionAnalysisConfig;
     setConfig({
@@ -149,7 +237,11 @@ export default function AIAgentNode({ id, data }: AIAgentNodeProps) {
   };
 
   const handleCustomerSelect = (customer: Customer) => {
-    updateAIActionAnalysisConfig({ selectedCustomer: customer });
+    if (data.type === 'aiActionAnalysis') {
+      updateAIActionAnalysisConfig({ selectedCustomer: customer });
+    } else if (data.type === 'mcpSupplierAgent') {
+      updateMCPSupplierAgentConfig({ selectedCustomer: customer });
+    }
     dispatch(setActiveCustomer(customer));
   };
 
@@ -174,17 +266,20 @@ export default function AIAgentNode({ id, data }: AIAgentNodeProps) {
         return 'bg-red-100 dark:bg-red-900';
       case 'researchAgent':
         return 'bg-teal-100 dark:bg-teal-900';
-      case 'supabase':
-        return 'bg-pink-100 dark:bg-pink-900';
       case 'aiActionAnalysis':
-        return 'bg-amber-100 dark:bg-amber-900';
+        return 'bg-indigo-100 dark:bg-indigo-900';
+      case 'mcpSupplierAgent':
+        return 'bg-violet-100 dark:bg-violet-900';
+      case 'conditional':
+        return 'bg-slate-100 dark:bg-slate-900';
+      case 'result':
+        return 'bg-gray-100 dark:bg-gray-900';
       default:
-        return 'bg-gray-100 dark:bg-gray-800';
+        return 'bg-gray-100 dark:bg-gray-900';
     }
   };
 
   const getNodeIcon = () => {
-    // Normal agent node için standart ikon seçimi
     switch (data.type) {
       case 'webScraper':
         return '🕷️';
@@ -203,13 +298,17 @@ export default function AIAgentNode({ id, data }: AIAgentNodeProps) {
       case 'youtubeSummarizer':
         return '📺';
       case 'researchAgent':
-        return '🔍';
-      case 'supabase':
-        return '💾';
+        return '🔬';
       case 'aiActionAnalysis':
-        return '💼';
+        return '🎯';
+      case 'mcpSupplierAgent':
+        return '⚡';
+      case 'conditional':
+        return '🔀';
+      case 'result':
+        return '📋';
       default:
-        return '?';
+        return '🤖';
     }
   };
 
@@ -361,7 +460,7 @@ export default function AIAgentNode({ id, data }: AIAgentNodeProps) {
 
           <div className="space-y-2 py-2">
             {/* Model yapılandırması - tüm agent tipleri için ortak */}
-            {data.type !== 'webSearcher' && (
+            {data.type !== 'webSearcher' && data.type !== 'mcpSupplierAgent' && (
               <ModelConfigForm
                 modelConfig={(config.modelConfig || defaultAgentConfigs[data.type].modelConfig || createDefaultAgentConfig(data.type).modelConfig) as ModelConfig}
                 onChange={updateModelConfig}
@@ -370,93 +469,7 @@ export default function AIAgentNode({ id, data }: AIAgentNodeProps) {
             )}
 
             {/* Supabase yapılandırması */}
-            {data.type === 'supabase' && (
-              <>
-                <div className="space-y-2">
-                  <Label>API URL</Label>
-                  <Input
-                    value={(config as unknown as SupabaseConfig).apiUrl}
-                    onChange={(e) => updateSupabaseConfig({ apiUrl: e.target.value })}
-                    placeholder="Supabase API URL"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label>API Key</Label>
-                  <Input
-                    type="password"
-                    value={(config as unknown as SupabaseConfig).apiKey}
-                    onChange={(e) => updateSupabaseConfig({ apiKey: e.target.value })}
-                    placeholder="Supabase API Key"
-                  />
-                </div>
-
-                <div className="flex items-center space-x-2">
-                  <input
-                    type="checkbox"
-                    id="useAnon"
-                    checked={(config as unknown as SupabaseConfig).useAnon}
-                    onChange={(e) => updateSupabaseConfig({ useAnon: e.target.checked })}
-                    className="rounded border-gray-300"
-                  />
-                  <Label htmlFor="useAnon">Anonim Anahtar Kullan</Label>
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Yetenekler</Label>
-                  <div className="space-y-2">
-                    <div className="flex items-center space-x-2">
-                      <input
-                        type="checkbox"
-                        id="database"
-                        checked={(config as unknown as SupabaseConfig).capabilities?.database}
-                        onChange={(e) => updateSupabaseConfig({
-                          capabilities: { ...(config as unknown as SupabaseConfig).capabilities, database: e.target.checked }
-                        })}
-                        className="rounded border-gray-300"
-                      />
-                      <Label htmlFor="database">Veritabanı</Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <input
-                        type="checkbox"
-                        id="auth"
-                        checked={(config as unknown as SupabaseConfig).capabilities?.auth}
-                        onChange={(e) => updateSupabaseConfig({
-                          capabilities: { ...(config as unknown as SupabaseConfig).capabilities, auth: e.target.checked }
-                        })}
-                        className="rounded border-gray-300"
-                      />
-                      <Label htmlFor="auth">Kimlik Doğrulama</Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <input
-                        type="checkbox"
-                        id="storage"
-                        checked={(config as unknown as SupabaseConfig).capabilities?.storage}
-                        onChange={(e) => updateSupabaseConfig({
-                          capabilities: { ...(config as unknown as SupabaseConfig).capabilities, storage: e.target.checked }
-                        })}
-                        className="rounded border-gray-300"
-                      />
-                      <Label htmlFor="storage">Depolama</Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <input
-                        type="checkbox"
-                        id="functions"
-                        checked={(config as unknown as SupabaseConfig).capabilities?.functions}
-                        onChange={(e) => updateSupabaseConfig({
-                          capabilities: { ...(config as unknown as SupabaseConfig).capabilities, functions: e.target.checked }
-                        })}
-                        className="rounded border-gray-300"
-                      />
-                      <Label htmlFor="functions">Edge Functions</Label>
-                    </div>
-                  </div>
-                </div>
-              </>
-            )}
+            {/* Remove the entire Supabase configuration section */}
 
             {/* AI Action Analysis yapılandırması */}
             {data.type === 'aiActionAnalysis' && (
@@ -467,6 +480,30 @@ export default function AIAgentNode({ id, data }: AIAgentNodeProps) {
                     placeholder="Müşteri ara..."
                     label="Müşteri Seçimi"
                     selectedCustomer={(config as AIActionAnalysisConfig).selectedCustomer}
+                    readonly={false}
+                  />
+                </div>
+              </>
+            )}
+
+            {/* MCP Supplier Agent yapılandırması */}
+            {data.type === 'mcpSupplierAgent' && (
+              <>
+                <div className="space-y-2">
+                  <Label>Action Tipi</Label>
+                  <div className="p-3 rounded-md border border-input bg-muted">
+                    <div className="text-sm font-medium">EKSTRE ÜRETİMİ</div>
+                    <div className="text-xs text-muted-foreground mt-1">GENERATE_STATEMENT</div>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <CustomerSearch
+                    onCustomerSelect={handleCustomerSelect}
+                    placeholder="Müşteri ara..."
+                    label="Müşteri Seçimi"
+                    selectedCustomer={(config as MCPSupplierAgentConfig).selectedCustomer}
+                    readonly={!!activeCustomer}
                   />
                 </div>
               </>
@@ -491,7 +528,7 @@ export default function AIAgentNode({ id, data }: AIAgentNodeProps) {
                   <Label>YouTube URL</Label>
                   <Input
                     value={(config as YoutubeSummarizerConfig).url}
-                    onChange={(e) => updateConfig<YoutubeSummarizerConfig>({ url: e.target.value })}
+                    onChange={(e) => updateConfig({ url: e.target.value })}
                     placeholder="YouTube video URL'sini girin"
                   />
                 </div>
@@ -508,7 +545,7 @@ export default function AIAgentNode({ id, data }: AIAgentNodeProps) {
                     min="1"
                     max="10"
                     value={(config as WebSearcherConfig).maxResults}
-                    onChange={(e) => updateConfig<WebSearcherConfig>({ maxResults: parseInt(e.target.value) || 4 })}
+                    onChange={(e) => updateConfig({ maxResults: parseInt(e.target.value) || 4 })}
                     placeholder="Kaç sonuç gösterilsin?"
                   />
                 </div>
@@ -517,7 +554,7 @@ export default function AIAgentNode({ id, data }: AIAgentNodeProps) {
                   <select
                     className="w-full p-2 rounded-md border border-input bg-background"
                     value={(config as WebSearcherConfig).filters.language}
-                    onChange={(e) => updateConfig<WebSearcherConfig>({
+                    onChange={(e) => updateConfig({
                       filters: {
                         ...(config as WebSearcherConfig).filters,
                         language: e.target.value,
@@ -541,7 +578,7 @@ export default function AIAgentNode({ id, data }: AIAgentNodeProps) {
                   <Label>Araştırma Konusu</Label>
                   <Input
                     value={(config as ResearchAgentConfig).topic}
-                    onChange={(e) => updateConfig<ResearchAgentConfig>({ topic: e.target.value })}
+                    onChange={(e) => updateConfig({ topic: e.target.value })}
                     placeholder="Araştırılacak konuyu girin"
                   />
                 </div>
@@ -553,7 +590,7 @@ export default function AIAgentNode({ id, data }: AIAgentNodeProps) {
                     min="1"
                     max="10"
                     value={(config as ResearchAgentConfig).numLinks}
-                    onChange={(e) => updateConfig<ResearchAgentConfig>({ numLinks: parseInt(e.target.value) || 5 })}
+                    onChange={(e) => updateConfig({ numLinks: parseInt(e.target.value) || 5 })}
                     placeholder="Kullanılacak kaynak sayısı"
                   />
                 </div>
@@ -563,7 +600,7 @@ export default function AIAgentNode({ id, data }: AIAgentNodeProps) {
                   <select
                     className="w-full p-2 rounded-md border border-input bg-background"
                     value={(config as ResearchAgentConfig).depth}
-                    onChange={(e) => updateConfig<ResearchAgentConfig>({
+                    onChange={(e) => updateConfig({
                       depth: e.target.value as 'basic' | 'detailed' | 'comprehensive'
                     })}
                   >
@@ -578,7 +615,7 @@ export default function AIAgentNode({ id, data }: AIAgentNodeProps) {
                   <select
                     className="w-full p-2 rounded-md border border-input bg-background"
                     value={(config as ResearchAgentConfig).language}
-                    onChange={(e) => updateConfig<ResearchAgentConfig>({ language: e.target.value })}
+                    onChange={(e) => updateConfig({ language: e.target.value })}
                   >
                     <option value="tr">Türkçe</option>
                     <option value="en">English</option>
@@ -593,7 +630,7 @@ export default function AIAgentNode({ id, data }: AIAgentNodeProps) {
                   <select
                     className="w-full p-2 rounded-md border border-input bg-background"
                     value={(config as ResearchAgentConfig).format}
-                    onChange={(e) => updateConfig<ResearchAgentConfig>({
+                    onChange={(e) => updateConfig({
                       format: e.target.value as 'text' | 'markdown' | 'bullet'
                     })}
                   >
@@ -608,7 +645,7 @@ export default function AIAgentNode({ id, data }: AIAgentNodeProps) {
                     type="checkbox"
                     id="includeSourceLinks"
                     checked={(config as ResearchAgentConfig).includeSourceLinks}
-                    onChange={(e) => updateConfig<ResearchAgentConfig>({ includeSourceLinks: e.target.checked })}
+                    onChange={(e) => updateConfig({ includeSourceLinks: e.target.checked })}
                     className="rounded border-gray-300"
                   />
                   <Label htmlFor="includeSourceLinks">Kaynak Linklerini Ekle</Label>
@@ -626,7 +663,7 @@ export default function AIAgentNode({ id, data }: AIAgentNodeProps) {
                     min="0"
                     max="5"
                     value={(config as WebScraperConfig).rules.maxDepth ?? 0}
-                    onChange={(e) => updateConfig<WebScraperConfig>({
+                    onChange={(e) => updateConfig({
                       rules: {
                         ...(config as WebScraperConfig).rules,
                         maxDepth: isNaN(parseInt(e.target.value)) ? 0 : parseInt(e.target.value),
@@ -643,7 +680,7 @@ export default function AIAgentNode({ id, data }: AIAgentNodeProps) {
                     min="1"
                     max="50"
                     value={(config as WebScraperConfig).rules.maxPages ?? 1}
-                    onChange={(e) => updateConfig<WebScraperConfig>({
+                    onChange={(e) => updateConfig({
                       rules: {
                         ...(config as WebScraperConfig).rules,
                         maxPages: isNaN(parseInt(e.target.value)) ? 1 : parseInt(e.target.value),
@@ -665,7 +702,7 @@ export default function AIAgentNode({ id, data }: AIAgentNodeProps) {
                       type="checkbox"
                       id="python"
                       checked={(config as CodeInterpreterConfig).runtime.python}
-                      onChange={(e) => updateConfig<CodeInterpreterConfig>({
+                      onChange={(e) => updateConfig({
                         runtime: {
                           ...(config as CodeInterpreterConfig).runtime,
                           python: e.target.checked,
@@ -680,7 +717,7 @@ export default function AIAgentNode({ id, data }: AIAgentNodeProps) {
                       type="checkbox"
                       id="javascript"
                       checked={(config as CodeInterpreterConfig).runtime.javascript}
-                      onChange={(e) => updateConfig<CodeInterpreterConfig>({
+                      onChange={(e) => updateConfig({
                         runtime: {
                           ...(config as CodeInterpreterConfig).runtime,
                           javascript: e.target.checked,
@@ -696,7 +733,7 @@ export default function AIAgentNode({ id, data }: AIAgentNodeProps) {
                   <Label>Kütüphaneler</Label>
                   <Input
                     value={(config as CodeInterpreterConfig).libraries.join(', ')}
-                    onChange={(e) => updateConfig<CodeInterpreterConfig>({
+                    onChange={(e) => updateConfig({
                       libraries: e.target.value.split(',').map(lib => lib.trim()).filter(Boolean),
                     })}
                     placeholder="Virgülle ayrılmış kütüphane listesi"
@@ -710,7 +747,7 @@ export default function AIAgentNode({ id, data }: AIAgentNodeProps) {
                     min="256"
                     max="4096"
                     value={(config as CodeInterpreterConfig).memoryLimit}
-                    onChange={(e) => updateConfig<CodeInterpreterConfig>({
+                    onChange={(e) => updateConfig({
                       memoryLimit: parseInt(e.target.value) || 1024,
                     })}
                     placeholder="MB cinsinden bellek limiti"
@@ -724,7 +761,7 @@ export default function AIAgentNode({ id, data }: AIAgentNodeProps) {
                     min="10"
                     max="300"
                     value={(config as CodeInterpreterConfig).timeoutSeconds}
-                    onChange={(e) => updateConfig<CodeInterpreterConfig>({
+                    onChange={(e) => updateConfig({
                       timeoutSeconds: parseInt(e.target.value) || 30,
                     })}
                     placeholder="Saniye cinsinden zaman aşımı"
@@ -743,7 +780,7 @@ export default function AIAgentNode({ id, data }: AIAgentNodeProps) {
                     accept=".csv,.json,.xlsx,.xls"
                     onChange={(e) => {
                       const file = e.target.files?.[0] || null;
-                      updateConfig<DataAnalystConfig>({
+                      updateConfig({
                         file: file
                       });
                     }}
@@ -754,7 +791,7 @@ export default function AIAgentNode({ id, data }: AIAgentNodeProps) {
                   <Label>Grafik X Ekseni</Label>
                   <Input
                     value={(config as DataAnalystConfig).xAxis || ''}
-                    onChange={(e) => updateConfig<DataAnalystConfig>({
+                    onChange={(e) => updateConfig({
                       xAxis: e.target.value
                     })}
                     placeholder="Örn: tarih, kategori, bölge"
@@ -765,7 +802,7 @@ export default function AIAgentNode({ id, data }: AIAgentNodeProps) {
                   <Label>Grafik Y Ekseni</Label>
                   <Input
                     value={(config as DataAnalystConfig).yAxis || ''}
-                    onChange={(e) => updateConfig<DataAnalystConfig>({
+                    onChange={(e) => updateConfig({
                       yAxis: e.target.value
                     })}
                     placeholder="Örn: satış, miktar, kar"
@@ -782,7 +819,7 @@ export default function AIAgentNode({ id, data }: AIAgentNodeProps) {
                   <select
                     className="w-full p-2 rounded-md border border-input bg-background"
                     value={(config as ImageGeneratorConfig).provider}
-                    onChange={(e) => updateConfig<ImageGeneratorConfig>({
+                    onChange={(e) => updateConfig({
                       provider: e.target.value as 'dalle' | 'stable-diffusion' | 'midjourney'
                     })}
                   >
@@ -797,7 +834,7 @@ export default function AIAgentNode({ id, data }: AIAgentNodeProps) {
                   <select
                     className="w-full p-2 rounded-md border border-input bg-background"
                     value={(config as ImageGeneratorConfig).resolution}
-                    onChange={(e) => updateConfig<ImageGeneratorConfig>({ resolution: e.target.value })}
+                    onChange={(e) => updateConfig({ resolution: e.target.value })}
                   >
                     <option value="256x256">256x256</option>
                     <option value="512x512">512x512</option>
@@ -812,7 +849,7 @@ export default function AIAgentNode({ id, data }: AIAgentNodeProps) {
                   <select
                     className="w-full p-2 rounded-md border border-input bg-background"
                     value={(config as ImageGeneratorConfig).style}
-                    onChange={(e) => updateConfig<ImageGeneratorConfig>({ style: e.target.value })}
+                    onChange={(e) => updateConfig({ style: e.target.value })}
                   >
                     <option value="natural">Doğal</option>
                     <option value="vivid">Canlı</option>
@@ -829,7 +866,7 @@ export default function AIAgentNode({ id, data }: AIAgentNodeProps) {
                     min="10"
                     max="150"
                     value={(config as ImageGeneratorConfig).samplingSteps}
-                    onChange={(e) => updateConfig<ImageGeneratorConfig>({
+                    onChange={(e) => updateConfig({
                       samplingSteps: parseInt(e.target.value) || 20
                     })}
                   />
@@ -847,7 +884,7 @@ export default function AIAgentNode({ id, data }: AIAgentNodeProps) {
                     min="100"
                     max="10000"
                     value={(config as TextGeneratorConfig).maxLength}
-                    onChange={(e) => updateConfig<TextGeneratorConfig>({
+                    onChange={(e) => updateConfig({
                       maxLength: parseInt(e.target.value) || 2000
                     })}
                     placeholder="Maksimum karakter sayısı"
@@ -859,7 +896,7 @@ export default function AIAgentNode({ id, data }: AIAgentNodeProps) {
                   <select
                     className="w-full p-2 rounded-md border border-input bg-background"
                     value={(config as TextGeneratorConfig).format}
-                    onChange={(e) => updateConfig<TextGeneratorConfig>({
+                    onChange={(e) => updateConfig({
                       format: e.target.value as 'markdown' | 'html' | 'plain'
                     })}
                   >
@@ -879,7 +916,7 @@ export default function AIAgentNode({ id, data }: AIAgentNodeProps) {
                   <select
                     className="w-full p-2 rounded-md border border-input bg-background"
                     value={(config as TranslatorConfig).targetLang}
-                    onChange={(e) => updateConfig<TranslatorConfig>({ targetLang: e.target.value })}
+                    onChange={(e) => updateConfig({ targetLang: e.target.value })}
                   >
                     <option value="tr">Türkçe</option>
                     <option value="en">İngilizce</option>

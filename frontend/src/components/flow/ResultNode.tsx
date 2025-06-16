@@ -11,7 +11,7 @@ import { updateNode, removeNode } from '@/store/slices/flowSlice';
 import { AgentType, ResultConfig, NodeType } from '@/store/types';
 import { toast } from 'sonner';
 import { defaultAgentConfigs } from '@/store/defaultConfigs';
-import { RootState } from '@/store';
+import { RootState } from '@/store/types';
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Switch } from "@/components/ui/switch";
 import { Loader2, X, Copy } from 'lucide-react';

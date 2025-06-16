@@ -1,6 +1,7 @@
 import axios from 'axios';
-import { WebSearcherConfig, YoutubeSummarizerConfig, ResearchAgentConfig, WebScraperConfig, TranslatorConfig, AIActionAnalysisConfig } from '@/store/types';
+import { WebSearcherConfig, YoutubeSummarizerConfig, ResearchAgentConfig, WebScraperConfig, TranslatorConfig, AIActionAnalysisConfig, MCPSupplierAgentConfig, StatementResponse } from '@/store/types';
 import { executeActionAnalysis } from './customer';
+import { getMCPActionConfig, parseContentForAction, parseMCPContent, extractCustomerIdFromParameters, executeMCPRequest } from '@/store/mcpConstants';
 
 const API_URL = 'http://localhost:8083/mcp-provider';
 const AXIOS_TIMEOUT = 30000;
@@ -186,46 +187,137 @@ export async function executeYoutubeSummarizer(config: YoutubeSummarizerConfig) 
   }
 }
 
-export async function executeSupabase(config: any) {
+export async function executeAIActionAnalysis(config: AIActionAnalysisConfig) {
   try {
-    const response = await axios.post(
-      `${API_URL}/agent/supabase`,
-      {
-        content: config.content,
-        apiUrl: config.apiUrl,
-        apiKey: config.apiKey,
-        useAnon: config.useAnon,
-        capabilities: config.capabilities
-      },
-      { timeout: AXIOS_TIMEOUT }
+    console.log('🎯 AI Action Analysis - Starting execution:', config);
+    
+    if (!config.selectedCustomer) {
+      console.error('❌ AI Action Analysis - No customer selected');
+      throw new Error('Müşteri seçilmemiş');
+    }
+
+    console.log('✅ AI Action Analysis - Customer found:', config.selectedCustomer);
+
+    const modelConfig = config.modelConfig;
+    console.log('🔧 AI Action Analysis - Model config:', modelConfig);
+    
+    const requestParams = {
+      content: config.content || '',
+      model: modelConfig ? `${modelConfig.type}/${modelConfig.model}` : 'huggingface/deepseek/deepseek-v3-0324',
+      maxTokens: modelConfig?.maxTokens || 1000,
+      temperature: modelConfig?.temperature || 0.7,
+      customerNo: config.selectedCustomer.id.toString()
+    };
+    
+    console.log('🚀 AI Action Analysis - Request params:', requestParams);
+    
+    const response = await executeActionAnalysis(
+      requestParams.content,
+      requestParams.model,
+      requestParams.maxTokens,
+      requestParams.temperature,
+      requestParams.customerNo
     );
 
-    return response.data;
+    console.log('✅ AI Action Analysis - Response received:', response);
+    return response;
   } catch (error) {
-    console.error('Supabase API Error:', error);
+    console.error('❌ AI Action Analysis error:', error);
     throw error;
   }
 }
 
-export async function executeAIActionAnalysis(config: AIActionAnalysisConfig) {
+export async function executeMCPSupplierAgent(config: any) {
   try {
-    if (!config.selectedCustomer) {
-      throw new Error('Müşteri seçilmemiş');
+    console.log('🎯 MCP Supplier Agent - Starting execution:', config);
+    
+    // Parse content to get parameters
+    const parsedParameters = config.parsedParameters || parseMCPContent(config.content);
+    console.log('🔍 MCP Supplier Agent - Initial parsedParameters:', parsedParameters);
+    
+    if (config.content) {
+      console.log('🔄 MCP Supplier Agent - Parsing content:', config.content);
+      const parsed = parseMCPContent(config.content);
+      console.log('✅ MCP Supplier Agent - Content parsed successfully:', parsed);
     }
 
-    const modelConfig = config.modelConfig;
-    const response = await executeActionAnalysis(
-      config.content || '',
-      modelConfig ? `${modelConfig.type}/${modelConfig.model}` : 'huggingface/deepseek/deepseek-v3-0324',
-      modelConfig?.maxTokens || 1000,
-      modelConfig?.temperature || 0.7,
-      config.selectedCustomer.id.toString()
-    );
+    // Get customer information - prioritize activeCustomer from store
+    let customerToUse = null;
+    
+    // First try to get activeCustomer from store
+    if (typeof window !== 'undefined') {
+      const storeState = (window as any).__REDUX_STORE__?.getState();
+      if (storeState?.settings?.activeCustomer) {
+        customerToUse = storeState.settings.activeCustomer;
+        console.log('✅ MCP Supplier Agent - Using activeCustomer from store:', customerToUse);
+      }
+    }
+    
+    // If no activeCustomer, try selectedCustomer from config
+    if (!customerToUse && config.selectedCustomer) {
+      customerToUse = config.selectedCustomer;
+      console.log('✅ MCP Supplier Agent - Using selectedCustomer from config:', customerToUse);
+    }
+    
+    // If still no customer, try to extract from parsedParameters
+    if (!customerToUse && parsedParameters) {
+      const customerId = extractCustomerIdFromParameters(parsedParameters);
+      if (customerId) {
+        // Create a minimal customer object with the ID
+        customerToUse = { id: customerId, customerNo: customerId };
+        console.log('✅ MCP Supplier Agent - Using customerId from parameters:', customerToUse);
+      }
+    }
 
-    return response;
+    if (!customerToUse) {
+      console.log('❌ MCP Supplier Agent - No customer information available');
+      throw new Error('Müşteri bilgisi bulunamadı. Müşteri seçin veya JSON verisinde customerId bulundurun.');
+    }
+
+    // Execute MCP request
+    const response = await executeMCPRequest({
+      customer: customerToUse,
+      parsedParameters: parsedParameters,
+      modelConfig: config.modelConfig,
+      content: config.content
+    });
+
+    console.log('✅ MCP Supplier Agent - Response received:', response);
+    
+    return {
+      content: response.content || 'MCP işlemi tamamlandı',
+      status: 'completed',
+      customer: customerToUse,
+      data: response
+    };
+
   } catch (error) {
-    console.error('AI Action Analysis error:', error);
-    throw error;
+    console.log('❌ MCP Supplier Agent API Error:', error);
+    throw new Error(`MCP Supplier Agent hatası: ${error}`);
+  }
+}
+
+export async function executeConditional(config: any) {
+  try {
+    // Conditional nodes are handled specially in FlowEditor
+    return {
+      content: 'Conditional evaluation completed',
+      status: 'completed'
+    };
+  } catch (error) {
+    throw new Error(`Conditional execution error: ${error}`);
+  }
+}
+
+export async function executeResult(config: any) {
+  try {
+    // Result nodes just display data, no execution needed
+    return {
+      content: 'Result node ready',
+      status: 'completed'
+    };
+  } catch (error) {
+    throw new Error(`Result execution error: ${error}`);
   }
 }
 
@@ -249,11 +341,15 @@ export async function executeAgent(agentType: string, config: any) {
       return executeYoutubeSummarizer(config);
     case 'researchAgent':
       return executeResearchAgent(config);
-    case 'supabase':
-      return executeSupabase(config);
     case 'aiActionAnalysis':
       return executeAIActionAnalysis(config);
+    case 'mcpSupplierAgent':
+      return executeMCPSupplierAgent(config);
+    case 'conditional':
+      return executeConditional(config);
+    case 'result':
+      return executeResult(config);
     default:
-      throw new Error(`Unknown agent type: ${agentType}`);
+      throw new Error(`Bilinmeyen agent tipi: ${agentType}`);
   }
 } 
