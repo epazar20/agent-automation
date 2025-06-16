@@ -149,6 +149,7 @@ export const defaultAgentConfigs: Record<AgentType, Partial<AgentConfig>> = {
   mcpSupplierAgent: {
     name: 'MCP Supplier Agent',
     description: 'MCP protokolü ile tedarikçi entegrasyonu',
+    actionType: 'GENERATE_STATEMENT',
     selectedCustomer: undefined,
     modelConfig: {
       type: 'huggingface',

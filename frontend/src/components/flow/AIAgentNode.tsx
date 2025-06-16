@@ -20,7 +20,8 @@ import {
   Settings,
   FileText,
   BarChart,
-  X
+  X,
+  FileImage
 } from 'lucide-react';
 import {
   AgentType,
@@ -39,7 +40,8 @@ import {
   NodeType,
   AIActionAnalysisConfig,
   MCPSupplierAgentConfig,
-  Customer
+  Customer,
+  EmailAttachment
 } from '@/store/types';
 import { toast } from 'sonner';
 import { defaultAgentConfigs, createDefaultAgentConfig } from '@/store/defaultConfigs';
@@ -48,6 +50,7 @@ import ModelConfigForm from './ModelConfigForm';
 import { RootState } from '@/store';
 import CustomerSearch from '@/components/ui/customer-search';
 import { setActiveCustomer, setFinanceActionTypes, setLastActionAnalysisResponse } from '@/store/slices/customerSlice';
+import { fetchEmailAttachments } from '@/api/agents';
 
 type AIAgentNodeProps = {
   id: string;
@@ -64,6 +67,10 @@ export default function AIAgentNode({ id, data }: AIAgentNodeProps) {
   const [isConfigOpen, setIsConfigOpen] = useState(false);
   const [isContentOpen, setIsContentOpen] = useState(false);
   const [isChartOpen, setIsChartOpen] = useState(false);
+  const [isDocumentOpen, setIsDocumentOpen] = useState(false);
+  const [attachments, setAttachments] = useState<EmailAttachment[]>([]);
+  const [selectedAttachment, setSelectedAttachment] = useState<EmailAttachment | null>(null);
+  const [isLoadingAttachments, setIsLoadingAttachments] = useState(false);
 
   // Get edges and executionResults from redux
   const edges = useSelector((state: RootState) => state.flow.edges);
@@ -83,6 +90,44 @@ export default function AIAgentNode({ id, data }: AIAgentNodeProps) {
   const isProcessing = executionStatus === 'running';
   const hasContent = executionResult?.content;
   const hasChart = data.type === 'dataAnalyst' && executionResult?.base64Image;
+  
+  // Check if MCP Supplier Agent has attachments
+  const hasAttachments = data.type === 'mcpSupplierAgent' && 
+    executionResult?.data?.results?.some((result: any) => 
+      result.status === 'success' && 
+      result.data?.attachmentIds && 
+      result.data.attachmentIds.length > 0
+    );
+
+  // Function to load attachments
+  const loadAttachments = async () => {
+    if (!hasAttachments || isLoadingAttachments) return;
+    
+    setIsLoadingAttachments(true);
+    try {
+      // Get attachment IDs from execution result
+      const attachmentIds: number[] = [];
+      executionResult?.data?.results?.forEach((result: any) => {
+        if (result.status === 'success' && result.data?.attachmentIds) {
+          attachmentIds.push(...result.data.attachmentIds);
+        }
+      });
+      
+      if (attachmentIds.length > 0) {
+        console.log('📎 Loading attachments:', attachmentIds);
+        const fetchedAttachments = await fetchEmailAttachments(attachmentIds);
+        setAttachments(fetchedAttachments);
+        if (fetchedAttachments.length > 0) {
+          setSelectedAttachment(fetchedAttachments[0]);
+        }
+      }
+    } catch (error) {
+      console.error('❌ Error loading attachments:', error);
+      toast.error('Dokümanlar yüklenirken hata oluştu');
+    } finally {
+      setIsLoadingAttachments(false);
+    }
+  };
 
   // MCP Supplier Agent config update function
   const updateMCPSupplierAgentConfig = useCallback((updates: Partial<MCPSupplierAgentConfig>) => {
@@ -312,6 +357,32 @@ export default function AIAgentNode({ id, data }: AIAgentNodeProps) {
     }
   };
 
+  // Get dynamic node name based on action type for mcpSupplierAgent
+  const getNodeName = () => {
+    if (data.type === 'mcpSupplierAgent') {
+      const mcpConfig = config as MCPSupplierAgentConfig;
+      if (mcpConfig.actionType) {
+        const actionConfig = getMCPActionConfig(mcpConfig.actionType);
+        return `${actionConfig.label} Agent`;
+      }
+      return 'MCP Supplier Agent';
+    }
+    return defaultAgentConfigs[data.type].name;
+  };
+
+  // Get dynamic node description based on action type for mcpSupplierAgent
+  const getNodeDescription = () => {
+    if (data.type === 'mcpSupplierAgent') {
+      const mcpConfig = config as MCPSupplierAgentConfig;
+      if (mcpConfig.actionType) {
+        const actionConfig = getMCPActionConfig(mcpConfig.actionType);
+        return `${actionConfig.label} işlemlerini gerçekleştirir`;
+      }
+      return 'MCP protokolü ile tedarikçi entegrasyonu';
+    }
+    return defaultAgentConfigs[data.type].description;
+  };
+
   const handleSave = () => {
     dispatch(updateNode({
       id,
@@ -407,6 +478,22 @@ export default function AIAgentNode({ id, data }: AIAgentNodeProps) {
           </Button>
         )}
 
+        {/* Document Button - Only for MCP Supplier Agent with attachments */}
+        {hasAttachments && (
+          <Button
+            size="icon"
+            variant="secondary"
+            className="h-5 w-5 rounded-full"
+            onClick={async (e) => {
+              e.stopPropagation();
+              setIsDocumentOpen(true);
+              await loadAttachments();
+            }}
+          >
+            <FileImage className="h-3 w-3" />
+          </Button>
+        )}
+
         {/* Delete Button */}
         <Button
           size="icon"
@@ -444,8 +531,8 @@ export default function AIAgentNode({ id, data }: AIAgentNodeProps) {
                 <span className="text-base">{getNodeIcon()}</span>
               </div>
               <div className="flex flex-col">
-                <span className="text-sm font-medium">{defaultAgentConfigs[data.type].name}</span>
-                <span className="text-xs text-muted-foreground">{defaultAgentConfigs[data.type].description}</span>
+                <span className="text-sm font-medium">{getNodeName()}</span>
+                <span className="text-xs text-muted-foreground">{getNodeDescription()}</span>
               </div>
             </CardTitle>
           </CardHeader>
@@ -454,7 +541,7 @@ export default function AIAgentNode({ id, data }: AIAgentNodeProps) {
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
             <DialogTitle>
-              {`${defaultAgentConfigs[data.type].name} Yapılandırması`}
+              {`${getNodeName()} Yapılandırması`}
             </DialogTitle>
           </DialogHeader>
 
@@ -1022,6 +1109,77 @@ export default function AIAgentNode({ id, data }: AIAgentNodeProps) {
               alt="Analiz Grafiği"
               className="max-w-full"
             />
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Document Preview Dialog */}
+      <Dialog open={isDocumentOpen} onOpenChange={setIsDocumentOpen}>
+        <DialogContent className="sm:max-w-[800px]">
+          <DialogHeader>
+            <DialogTitle>Doküman Görüntüleyici</DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col space-y-4">
+            {isLoadingAttachments ? (
+              <div className="flex justify-center items-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                <span className="ml-2">Dokümanlar yükleniyor...</span>
+              </div>
+            ) : attachments.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                Doküman bulunamadı
+              </div>
+            ) : (
+              <>
+                <div className="space-y-2">
+                  <Label>Dokümanlar ({attachments.length})</Label>
+                  <select
+                    className="w-full p-2 rounded-md border border-input bg-background"
+                    value={selectedAttachment?.id || ''}
+                    onChange={(e) => {
+                      const attachmentId = parseInt(e.target.value);
+                      const attachment = attachments.find(a => a.id === attachmentId) || null;
+                      setSelectedAttachment(attachment);
+                    }}
+                  >
+                    <option value="">Doküman seçin</option>
+                    {attachments.map(a => (
+                      <option key={a.id} value={a.id}>
+                        {a.filename} ({(a.fileSize / 1024).toFixed(1)} KB)
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                {selectedAttachment && (
+                  <div className="flex flex-col space-y-2">
+                    <div className="text-sm text-muted-foreground">
+                      <strong>Dosya:</strong> {selectedAttachment.filename}<br/>
+                      <strong>Tip:</strong> {selectedAttachment.contentType}<br/>
+                      <strong>Boyut:</strong> {(selectedAttachment.fileSize / 1024).toFixed(1)} KB
+                    </div>
+                    <div className="flex justify-center border rounded p-4">
+                      {selectedAttachment.contentType === 'application/pdf' ? (
+                        <iframe
+                          src={`data:${selectedAttachment.contentType};base64,${selectedAttachment.base64Content}`}
+                          className="w-full h-96 border rounded"
+                          title={selectedAttachment.filename}
+                        />
+                      ) : selectedAttachment.contentType.startsWith('image/') ? (
+                        <img
+                          src={`data:${selectedAttachment.contentType};base64,${selectedAttachment.base64Content}`}
+                          alt={selectedAttachment.filename}
+                          className="max-w-full max-h-96"
+                        />
+                      ) : (
+                        <div className="text-center py-8 text-muted-foreground">
+                          Bu dosya türü önizlenemiyor: {selectedAttachment.contentType}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
           </div>
         </DialogContent>
       </Dialog>

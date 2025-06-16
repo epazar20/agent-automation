@@ -352,4 +352,28 @@ export async function executeAgent(agentType: string, config: any) {
     default:
       throw new Error(`Bilinmeyen agent tipi: ${agentType}`);
   }
+}
+
+export async function fetchEmailAttachments(attachmentIds: number[]) {
+  try {
+    console.log('📎 Fetching email attachments:', attachmentIds);
+    
+    const response = await axios.post(
+      `${API_URL}/api/email-attachments/by-ids/with-content`,
+      attachmentIds,
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        timeout: AXIOS_TIMEOUT
+      }
+    );
+
+    console.log('✅ Email attachments fetched successfully:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('❌ Email Attachments API Error:', error);
+    throw error;
+  }
 } 

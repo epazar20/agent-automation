@@ -348,6 +348,8 @@ export interface CustomerState {
 
 // MCP Action Types
 export type MCPActionType = 'GENERATE_STATEMENT';
+// Future action types can be added here:
+// | 'SEND_EMAIL' | 'GENERATE_REPORT' | 'PROCESS_PAYMENT' etc.
 
 export interface MCPActionConfig {
   type: MCPActionType;
@@ -381,6 +383,19 @@ export interface StatementResponse {
   customer: Customer;
   transactions: Transaction[];
   attachmentIds: number[];
+}
+
+// Email Attachment Types
+export interface EmailAttachment {
+  id: number;
+  filename: string;
+  contentType: string;
+  fileSize: number;
+  actionType: string;
+  customerId: number;
+  createdAt: number[];
+  updatedAt: number[];
+  base64Content: string;
 }
 
 // Ana State
