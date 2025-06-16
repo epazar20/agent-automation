@@ -469,17 +469,6 @@ export default function AIAgentNode({ id, data }: AIAgentNodeProps) {
                     selectedCustomer={(config as AIActionAnalysisConfig).selectedCustomer}
                   />
                 </div>
-
-                <div className="space-y-2">
-                  <Label>Sistem Prompt</Label>
-                  <textarea
-                    className="w-full p-2 rounded-md border border-input bg-background"
-                    value={(config as AIActionAnalysisConfig).systemPrompt || ''}
-                    onChange={(e) => updateAIActionAnalysisConfig({ systemPrompt: e.target.value })}
-                    placeholder="Sistem prompt'unu girin"
-                    rows={3}
-                  />
-                </div>
               </>
             )}
 

@@ -195,7 +195,6 @@ export interface CustomerSearchResponse {
 // AI Action Analysis Types
 export interface AIActionAnalysisConfig extends BaseAgentConfig {
   selectedCustomer?: Customer;
-  systemPrompt: string;
 }
 
 export interface ActionAnalysisResponse {

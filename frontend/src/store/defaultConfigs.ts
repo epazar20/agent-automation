@@ -185,7 +185,6 @@ export const defaultAgentConfigs: Record<AgentType, Partial<AgentConfig>> = {
     name: 'AI Action Analysis',
     description: 'Finansal işlem analizi ve aksiyon tespiti',
     selectedCustomer: undefined,
-    systemPrompt: 'Sen bir finansal işlem analizcisin. Verileri prompt\'u analiz edip alınacak aksiyonları tespit etmelisin',
     modelConfig: {
       type: 'huggingface',
       model: 'deepseek/deepseek-v3-0324',

@@ -85,6 +85,7 @@ export default function ModelConfigForm({ modelConfig, onChange, agentType }: Mo
 
   const isTranslator = agentType === 'translator';
   const isDataAnalyst = agentType === 'dataAnalyst';
+  const isAIActionAnalysis = agentType === 'aiActionAnalysis';
 
   const getDefaultSystemPrompt = () => {
     if (isTranslator) {
@@ -92,6 +93,9 @@ export default function ModelConfigForm({ modelConfig, onChange, agentType }: Mo
     }
     if (isDataAnalyst) {
       return 'Sen bir veri analizcisin. Verileri detaylı analiz edip istenen bilgileri sağlamalısın';
+    }
+    if (isAIActionAnalysis) {
+      return 'Sen bir finansal işlem analizcisin. Verileri prompt\'u analiz edip alınacak aksiyonları tespit etmelisin';
     }
     return 'Sen bir transkript özetleyicisin. Verilen metni özetleyeceksin';
   };
