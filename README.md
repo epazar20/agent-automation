@@ -2,8 +2,10 @@
 
 Modern AI tabanlı iş süreçlerini otomatikleştiren görsel flow editörü ve mikroservis tabanlı agent sistemi.
 
-![AI Agent Flow Editor](https://github.com/user-attachments/assets/ai-agent-flow-screenshot.png)
+![AI Agent Flow Editor](frontend/public/ai-agent-flow-screenshot.png)
 *AI Agent Flow Editor - Görsel İş Akışı Tasarım Arayüzü*
+
+> **📸 Görsel Ekleme**: Ekteki ekran görüntüsünü `frontend/public/ai-agent-flow-screenshot.png` konumuna kaydedin veya GitHub Issues'a yükleyip URL'i güncelleyin.
 
 ## 🏗️ Sistem Mimarisi
 
