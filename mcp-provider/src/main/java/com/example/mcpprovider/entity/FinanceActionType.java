@@ -6,11 +6,8 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
-import org.hibernate.annotations.JdbcTypeCode;
-import org.hibernate.type.SqlTypes;
 
 import java.time.LocalDateTime;
-import java.util.Map;
 
 @Entity
 @Table(name = "finance_action_types")
@@ -23,18 +20,29 @@ public class FinanceActionType {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
     
-    @Column(name = "type_name", nullable = false, unique = true, length = 50)
-    private String typeName;
+    @Column(name = "type_code", nullable = false, unique = true, length = 50)
+    private String typeCode; // GENERATE_STATEMENT, SEND_EMAIL, etc.
+    
+    @Column(name = "type_name", nullable = false, length = 100)
+    private String typeName; // Turkish name like "EKSTRE ÜRETİMİ"
     
     @Column(name = "description", nullable = false, columnDefinition = "TEXT")
-    private String description;
+    private String description; // Full description
     
     @Column(name = "sample_prompt", nullable = false, columnDefinition = "TEXT")
-    private String samplePrompt;
+    private String samplePrompt; // Sample usage prompt
     
-    @JdbcTypeCode(SqlTypes.JSON)
-    @Column(name = "json_map", nullable = false, columnDefinition = "jsonb")
-    private Map<String, Object> jsonMap;
+    @Column(name = "endpoint_path", nullable = false, length = 200)
+    private String endpointPath; // API endpoint like "/api/transactions/statement"
+    
+    @Column(name = "json_schema", columnDefinition = "TEXT")
+    private String jsonSchema; // JSON schema for parameters
+    
+    @Column(name = "is_active", nullable = false)
+    private Boolean isActive = true;
+    
+    @Column(name = "sort_order")
+    private Integer sortOrder;
     
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
