@@ -291,6 +291,43 @@ function Flow() {
         const inputs = [];
         const incomingEdges = edges.filter(edge => edge.target === node.id);
         
+        // ENHANCED: Wait for ALL prerequisite nodes to complete before executing
+        const prerequisiteNodeIds = incomingEdges.map(edge => edge.source);
+        const uncompletedPrerequisites = prerequisiteNodeIds.filter(nodeId => {
+          const result = resultMap.get(nodeId);
+          return !result || result.status !== 'completed';
+        });
+        
+        if (uncompletedPrerequisites.length > 0) {
+          console.log(`⏸️ Node ${node.id} (${node.data.type}) waiting for prerequisites:`, uncompletedPrerequisites);
+          // This should not happen with proper topological sort, but adding safety check
+          throw new Error(`Node ${node.id} has uncompleted prerequisites: ${uncompletedPrerequisites.join(', ')}`);
+        }
+        
+        // Special handling for SEND_EMAIL to ensure all MCP nodes are completed
+        if (node.data.type === 'mcpSupplierAgent' && (node.data.config as any).actionType === 'SEND_EMAIL') {
+          console.log('📧 SEND_EMAIL node detected - verifying all prerequisite MCP nodes are completed');
+          
+          // Find all MCP nodes that should have completed before this SEND_EMAIL
+          const allMcpNodes = executionOrder.filter(n => 
+            n.data.type === 'mcpSupplierAgent' && 
+            n.id !== node.id && 
+            executionOrder.indexOf(n) < executionOrder.indexOf(node)
+          );
+          
+          const incompleteMcpNodes = allMcpNodes.filter(mcpNode => {
+            const result = resultMap.get(mcpNode.id);
+            return !result || result.status !== 'completed';
+          });
+          
+          if (incompleteMcpNodes.length > 0) {
+            console.error('❌ SEND_EMAIL cannot execute - incomplete MCP nodes:', incompleteMcpNodes.map(n => n.id));
+            throw new Error(`SEND_EMAIL node cannot execute until all prerequisite MCP nodes complete: ${incompleteMcpNodes.map(n => n.id).join(', ')}`);
+          }
+          
+          console.log(`✅ SEND_EMAIL prerequisites verified - ${allMcpNodes.length} MCP nodes completed successfully`);
+        }
+        
         for (const edge of incomingEdges) {
           const sourceResult = resultMap.get(edge.source);
           if (sourceResult?.status === 'completed' && sourceResult.output) {

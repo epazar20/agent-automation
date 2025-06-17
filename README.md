@@ -1,73 +1,514 @@
-# Microservices Project
+# AI Agent Automation Platform
 
-This project contains two Spring Boot microservices:
+Modern AI tabanlı iş süreçlerini otomatikleştiren görsel flow editörü ve mikroservis tabanlı agent sistemi.
 
-1. **agent-provider** - Running on port 8081
-2. **ai-provider** - Running on port 8082
+![AI Agent Flow Editor](https://github.com/user-attachments/assets/ai-agent-flow-screenshot.png)
+*AI Agent Flow Editor - Görsel İş Akışı Tasarım Arayüzü*
 
-## Prerequisites
+## 🏗️ Sistem Mimarisi
 
-- Java 17
-- Maven
+Bu proje, **mikroservis mimarisi** ile tasarlanmış kapsamlı bir AI agent automation platformudur:
 
-## How to Build
+### 📊 Mikroservis Yapısı
 
-To build all modules:
+```
+AI Agent Automation Platform
+├── 🎨 Frontend (Next.js)          → Port: 3000
+├── 🤖 AI Provider                 → Port: 8082
+├── 🔧 Agent Provider              → Port: 8081  
+└── 💼 MCP Provider                → Port: 8083
+```
 
+## 🚀 Özellikler
+
+### 🎯 İş Agentları (Business Agents)
+- **AI Action Analysis**: Finansal işlem analizi ve aksiyon tespiti
+- **MCP Supplier Agent**: MCP protokolü ile tedarikçi entegrasyonu
+  - GENERATE_STATEMENT: Ekstre üretimi
+  - OVERDUE_PAYMENT: Gecikmiş ödeme kontrolü
+  - SEND_EMAIL: Otomatik e-posta gönderimi
+
+### 🔧 Genel Agentlar (General Agents)
+- **Web Scraper**: Web sitelerinden veri çekme
+- **Web Searcher**: İnternet araması ve analizi
+- **Code Interpreter**: Kod çalıştırma ve analizi
+- **Data Analyst**: Veri analizi ve görselleştirme
+- **Image Generator**: AI ile görsel üretimi
+- **Text Generator**: Metin üretimi ve düzenleme
+- **Translator**: Çok dilli çeviri
+- **YouTube Summarizer**: Video özetleme
+- **Research Agent**: Araştırma ve rapor hazırlama
+
+### 🎛️ Kontrol Yapıları
+- **Conditional Node**: Koşullu dallanma
+- **Result Node**: Sonuç görüntüleme
+
+## 🏢 Mikroservis Detayları
+
+### 🎨 Frontend (Next.js + TypeScript)
+**Port**: 3000 | **Framework**: Next.js 15.3.2 | **Language**: TypeScript 5.8.3
+
+```
+frontend/
+├── src/
+│   ├── components/
+│   │   ├── flow/
+│   │   │   ├── FlowEditor.tsx      # Ana flow editörü
+│   │   │   ├── AIAgentNode.tsx     # Agent node bileşeni
+│   │   │   ├── ConditionalNode.tsx # Koşullu node
+│   │   │   └── ResultNode.tsx      # Sonuç node
+│   │   ├── ui/                     # Shadcn/ui bileşenleri
+│   │   └── customer/               # Müşteri yönetimi
+│   ├── store/
+│   │   ├── slices/
+│   │   │   ├── flowSlice.ts        # Flow state yönetimi
+│   │   │   └── customerSlice.ts    # Müşteri state yönetimi
+│   │   └── types.ts                # TypeScript tipleri
+│   └── api/
+│       ├── agents.ts               # Agent API çağrıları
+│       └── customer.ts             # Müşteri API'leri
+├── package.json                    # Dependencies
+└── tailwind.config.ts              # Styling
+```
+
+**Temel Teknolojiler:**
+- **React Flow**: Görsel node editörü
+- **Redux Toolkit**: State yönetimi
+- **Tailwind CSS**: Styling
+- **Radix UI**: UI bileşenleri
+- **Axios**: HTTP client
+
+### 🤖 AI Provider (Spring Boot)
+**Port**: 8082 | **Framework**: Spring Boot 3.2.5 | **Language**: Java 17
+
+```
+ai-provider/
+├── src/main/java/com/example/aiprovider/
+│   ├── controller/          # REST Controllers
+│   ├── service/            # Business Logic
+│   ├── model/              # Data Models
+│   ├── client/             # External API Clients
+│   ├── utils/              # Utility Classes
+│   └── exception/          # Exception Handling
+├── pom.xml                 # Maven Dependencies
+└── application.properties  # Configuration
+```
+
+**Temel Teknolojiler:**
+- **Spring Boot Web**: REST API
+- **Spring Cloud OpenFeign**: Mikroservis iletişimi
+- **Jackson**: JSON processing
+- **Lombok**: Code generation
+
+**Sorumluluklar:**
+- AI model entegrasyonları
+- Dış AI servis çağrıları
+- Model response işleme
+
+### 🔧 Agent Provider (Spring Boot)
+**Port**: 8081 | **Framework**: Spring Boot 3.2.5 | **Language**: Java 17
+
+```
+agent-provider/
+├── src/main/java/com/example/agentprovider/
+│   ├── controller/          # REST Controllers
+│   ├── service/            # Agent Services
+│   ├── model/              # Agent Models
+│   ├── client/             # HTTP Clients
+│   └── config/             # Configuration
+├── pom.xml                 # Maven Dependencies
+└── application.properties  # Configuration
+```
+
+**Temel Teknolojiler:**
+- **Spring Boot WebFlux**: Reactive programming
+- **JSoup**: HTML parsing (Web Scraper)
+- **Apache POI**: Excel/Word processing
+- **JFreeChart**: Chart generation
+- **Apache Commons**: Utility libraries
+
+**Sorumluluklar:**
+- Web scraping işlemleri
+- Veri analizi ve görselleştirme
+- Dosya işleme (Excel, CSV, PDF)
+- Code interpretation
+
+### 💼 MCP Provider (Spring Boot)
+**Port**: 8083 | **Framework**: Spring Boot 3.2.5 | **Language**: Java 17
+
+```
+mcp-provider/
+├── src/main/java/com/example/mcpprovider/
+│   ├── controller/          # REST Controllers
+│   ├── service/            # Business Services
+│   ├── entity/             # JPA Entities
+│   ├── repository/         # Data Repositories
+│   ├── dto/                # Data Transfer Objects
+│   ├── mapper/             # Object Mappers
+│   ├── config/             # Configuration
+│   ├── client/             # External Clients
+│   └── enums/              # Enumerations
+├── pom.xml                 # Maven Dependencies
+└── application.properties  # Configuration
+```
+
+**Temel Teknolojiler:**
+- **Spring Boot Data JPA**: Database operations
+- **PostgreSQL**: Primary database
+- **Spring Boot Mail**: Email sending
+- **Thymeleaf**: Template engine
+- **iText**: PDF generation
+- **Flyway**: Database migrations
+
+**Sorumluluklar:**
+- MCP protokolü implementasyonu
+- Müşteri yönetimi
+- Finansal işlem analizi
+- E-posta ve PDF servisleri
+- Veritabanı operasyonları
+
+## 🔄 Flow Execution Mantığı
+
+### 1. Topological Sorting
+Node'lar dependency sırasına göre otomatik sıralanır:
+```
+AI Action Analysis → GENERATE_STATEMENT → OVERDUE_PAYMENT → SEND_EMAIL
+```
+
+### 2. Sequential Execution
+Her node sırasıyla çalıştırılır ve bir sonrakine geçmeden tamamlanması beklenir.
+
+### 3. Data Flow
+- Önceki node'ların çıktıları sonraki node'lara input olarak geçer
+- Accumulated responses Redux store'da tutulur
+- SEND_EMAIL node tüm önceki attachmentIds'leri birleştirir
+
+### 4. Mikroservis İletişimi
+```mermaid
+graph TD
+    A[Frontend] --> B[AI Provider]
+    A --> C[Agent Provider]
+    A --> D[MCP Provider]
+    D --> E[PostgreSQL]
+    D --> F[Email Service]
+    B --> G[External AI APIs]
+    C --> H[Web Sources]
+```
+
+## 📊 Örnek Senaryo
+
+### Finansal İşlem Analizi ve E-posta Gönderimi
+
+1. **AI Action Analysis** (MCP Provider)
+   - Müşteri seçimi ve finansal analiz
+   - Gerekli aksiyonları tespit eder
+   - Output: `financeActionTypes: ['GENERATE_STATEMENT', 'OVERDUE_PAYMENT', 'SEND_EMAIL']`
+
+2. **GENERATE_STATEMENT** (MCP Provider)
+   - Ekstre üretimi gerekli mi kontrolü
+   - API: `POST /mcp-provider/api/mcp-request`
+   - Output: `attachmentIds: [58]`
+
+3. **OVERDUE_PAYMENT** (MCP Provider)
+   - Gecikmiş ödeme kontrolü
+   - API: `POST /mcp-provider/api/mcp-request`
+   - Output: `attachmentIds: [59]`
+
+4. **SEND_EMAIL** (MCP Provider)
+   - Önceki tüm attachmentIds'leri birleştirir: `[58, 59]`
+   - Müşteriye e-posta gönderir
+   - API: `POST /mcp-provider/api/mcp-request`
+
+## 🛠️ Kurulum ve Çalıştırma
+
+### Gereksinimler
+- **Java 17+**
+- **Node.js 18+**
+- **Maven 3.8+**
+- **PostgreSQL 13+**
+- **npm veya yarn**
+
+### 1. Backend Mikroservisleri
+
+#### Parent Project Build
 ```bash
+# Tüm mikroservisleri build et
 mvn clean install
 ```
 
-## How to Run
-
-### Running agent-provider
-
-```bash
-cd agent-provider
-mvn spring-boot:run
-```
-
-The service will be available at: http://localhost:8081
-
-### Running ai-provider
-
+#### AI Provider (Port: 8082)
 ```bash
 cd ai-provider
 mvn spring-boot:run
 ```
 
-The service will be available at: http://localhost:8082
-
-## Project Structure
-
-```
-.
-├── agent-provider/           # Agent Provider Microservice
-│   ├── src/                  # Source code
-│   └── pom.xml               # Maven configuration
-├── ai-provider/              # AI Provider Microservice
-│   ├── src/                  # Source code
-│   └── pom.xml               # Maven configuration
-└── pom.xml                   # Parent Maven configuration
+#### Agent Provider (Port: 8081)
+```bash
+cd agent-provider
+mvn spring-boot:run
 ```
 
-## Development Setup
+#### MCP Provider (Port: 8083)
+```bash
+cd mcp-provider
 
-### Environment Configuration
+# PostgreSQL veritabanı oluştur
+createdb mcp_db
 
-1. Create a copy of `application-secrets.properties.example` as `application-secrets.properties` in the following locations:
-   - `agent-provider/src/main/resources/`
+# Veritabanı migrasyonları
+mvn flyway:migrate
 
-2. Update the secret values in your local `application-secrets.properties` files with your actual API keys:
-   ```properties
-   RAPIDAPI_YOUTUBE_TRANSCRIPTOR_KEY=your_rapidapi_key
-   DEEPL_API_AUTH_KEY=your_deepl_api_key
-   ```
+# Servisi başlat
+mvn spring-boot:run
+```
 
-3. Never commit `application-secrets.properties` files to version control. They are already added to `.gitignore`.
+### 2. Frontend Kurulumu
+```bash
+cd frontend
+npm install
+npm run dev
+```
 
-### Running the Application
+### Environment Variables
 
-1. Ensure you have completed the environment configuration steps above.
-2. The application will automatically load the appropriate properties files based on the active profile.
-3. For local development, the application will use default URLs if not specified in the environment. 
+#### Backend (.env veya application.properties)
+```properties
+# Database
+spring.datasource.url=jdbc:postgresql://localhost:5432/mcp_db
+spring.datasource.username=postgres
+spring.datasource.password=postgres
+
+# Email
+spring.mail.host=smtp.gmail.com
+spring.mail.username=your-email@gmail.com
+spring.mail.password=your-app-password
+
+# External APIs
+RAPIDAPI_YOUTUBE_TRANSCRIPTOR_KEY=your_rapidapi_key
+DEEPL_API_AUTH_KEY=your_deepl_api_key
+```
+
+#### Frontend (.env.local)
+```env
+NEXT_PUBLIC_API_URL=http://localhost:8083/mcp-provider
+NEXT_PUBLIC_AI_PROVIDER_URL=http://localhost:8082
+NEXT_PUBLIC_AGENT_PROVIDER_URL=http://localhost:8081
+```
+
+## 🎨 Kullanım
+
+### 1. Node Ekleme
+- Sol panelden istenen agent tipini sürükle-bırak
+- **İş Agentları**: Müşteri odaklı operasyonlar
+- **Genel Agentlar**: Genel amaçlı işlemler
+
+### 2. Node Konfigürasyonu
+- Her node'a tıklayarak ayarları düzenleyin
+- Model konfigürasyonu (GPT, Claude, Hugging Face)
+- Özel parametreler ve system prompt'lar
+
+### 3. Bağlantı Kurma
+- Node'lar arası veri akışını tanımlayın
+- Conditional node'lar için true/false çıkışları
+
+### 4. Execution
+- **"Çalıştır"** butonu ile flow'u başlatın
+- Real-time execution durumunu takip edin
+- Edge'ler renk kodlu durum gösterir:
+  - 🔴 **Kırmızı**: Hata
+  - 🟡 **Turuncu**: Çalışıyor
+  - 🟢 **Yeşil**: Tamamlandı
+  - ⚪ **Gri**: Bekliyor
+
+## 🔧 API Endpoints
+
+### MCP Provider (Port: 8083)
+
+#### Customer Management
+```http
+POST /mcp-provider/api/customers/search
+Content-Type: application/json
+
+{
+  "query": "customer name or id"
+}
+```
+
+#### Action Analysis
+```http
+POST /mcp-provider/action-analysis
+Content-Type: application/json
+
+{
+  "content": "analysis prompt",
+  "model": "huggingface/deepseek/deepseek-v3-0324",
+  "customerNo": "12345"
+}
+```
+
+#### MCP Operations
+```http
+POST /mcp-provider/api/mcp-request
+Content-Type: application/json
+
+{
+  "selectedActions": ["SEND_EMAIL"],
+  "parameters": {
+    "SEND_EMAIL": {
+      "customerId": "12345",
+      "to": "customer@example.com",
+      "subject": "Finansal Rapor",
+      "body": "Rapor ektedir",
+      "attachmentIds": [58, 59]
+    }
+  }
+}
+```
+
+### Agent Provider (Port: 8081)
+
+#### Web Scraper
+```http
+POST /agents/web-scraper
+Content-Type: application/json
+
+{
+  "url": "https://example.com",
+  "rules": ["title", "content"],
+  "model": "huggingface/deepseek/deepseek-v3-0324"
+}
+```
+
+#### Data Analyst
+```http
+POST /agent/data-analyst
+Content-Type: application/json
+
+{
+  "content": "data analysis request",
+  "xAxis": "date",
+  "yAxis": "value",
+  "file": "data.csv"
+}
+```
+
+### AI Provider (Port: 8082)
+
+#### Text Generation
+```http
+POST /agent/text-generator
+Content-Type: application/json
+
+{
+  "content": "generation prompt",
+  "maxLength": 2000,
+  "format": "markdown"
+}
+```
+
+## 🎯 Özellikler
+
+### ✅ Mevcut Özellikler
+- **Frontend**:
+  - Görsel flow editörü
+  - Drag & drop node ekleme
+  - Real-time execution tracking
+  - Conditional branching
+  - Redux state management
+  - TypeScript type safety
+
+- **Backend**:
+  - Mikroservis mimarisi
+  - PostgreSQL database
+  - Email sending
+  - PDF generation
+  - Multi-attachment support
+  - AI model integrations
+  - Web scraping capabilities
+
+### 🚧 Geliştirme Aşamasında
+- **Monitoring & Observability**:
+  - Distributed tracing
+  - Metrics collection
+  - Log aggregation
+  
+- **Advanced Features**:
+  - Flow templates
+  - Batch processing
+  - Scheduling system
+  - API rate limiting
+  - Caching strategies
+
+- **Security**:
+  - JWT authentication
+  - Role-based access control
+  - API key management
+
+## 🧪 Test
+
+### Backend Tests
+```bash
+# Tüm testleri çalıştır
+mvn test
+
+# Specific service tests
+cd mcp-provider && mvn test
+cd agent-provider && mvn test
+cd ai-provider && mvn test
+```
+
+### Frontend Tests
+```bash
+cd frontend
+npm run test
+npm run lint
+```
+
+## 📈 Monitoring
+
+### Health Checks
+- **AI Provider**: http://localhost:8082/actuator/health
+- **Agent Provider**: http://localhost:8081/actuator/health
+- **MCP Provider**: http://localhost:8083/actuator/health
+
+### Metrics
+- **Prometheus**: http://localhost:8083/actuator/prometheus
+- **Custom Metrics**: Flow execution times, success rates
+
+## 🤝 Katkıda Bulunma
+
+1. Repository'yi fork edin
+2. Feature branch oluşturun: `git checkout -b feature/new-feature`
+3. Değişikliklerinizi commit edin: `git commit -am 'Add new feature'`
+4. Branch'i push edin: `git push origin feature/new-feature`
+5. Pull Request oluşturun
+
+### Geliştirme Kuralları
+- Java kod standardı: Google Java Style Guide
+- TypeScript: ESLint + Prettier
+- Commit messages: Conventional Commits
+- Test coverage: Minimum %80
+
+## 📝 Lisans
+
+Bu proje MIT lisansı altında lisanslanmıştır.
+
+## 🆘 Destek
+
+- **GitHub Issues**: Bug reports ve feature requests
+- **Documentation**: Wiki sayfaları
+- **Community**: Discussions bölümü
+
+## 📚 Kaynaklar
+
+- [Spring Boot Documentation](https://spring.io/projects/spring-boot)
+- [Next.js Documentation](https://nextjs.org/docs)
+- [React Flow Documentation](https://reactflow.dev/)
+- [PostgreSQL Documentation](https://www.postgresql.org/docs/)
+
+---
+
+**Geliştirici**: AI Agent Automation Team  
+**Versiyon**: 1.0.0  
+**Son Güncelleme**: 2024  
+**Lisans**: MIT 

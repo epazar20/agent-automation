@@ -397,29 +397,59 @@ function preprocessAccumulatedResponses(
     console.log('🔄 Enhancing parameters with data from previous responses...');
 
     if (currentActionType === 'SEND_EMAIL') {
-      // For SEND_EMAIL, look for  responses to get attachment IDs
-      const generateStatementResponses = responses.filter(r => 
+      // For SEND_EMAIL, collect attachment IDs from ALL previous mcpSupplierAgent responses
+      const mcpSupplierResponses = responses.filter(r => 
         r.nodeType === 'mcpSupplierAgent'
       );
 
-      for (const response of generateStatementResponses) {
+      // Collect all attachment IDs from all previous nodes
+      const allAttachmentIds: number[] = [];
+      let emailBodyEnhancements: string[] = [];
+
+      console.log(`🔍 SEND_EMAIL - Found ${mcpSupplierResponses.length} MCP Supplier responses to process`);
+
+      for (const response of mcpSupplierResponses) {
         if (response.response && response.response.data) {
+          console.log(`🔄 SEND_EMAIL - Processing response from node ${response.nodeId} (${response.actionType})`);
+          
           // Look for attachment IDs in the API response
           const attachmentIds = extractAttachmentIdsFromResponse(response.response.data);
           if (attachmentIds && attachmentIds.length > 0) {
-            enhancedParams.attachmentIds = attachmentIds;
-            console.log('✅ Added attachment IDs from response:', attachmentIds);
+            allAttachmentIds.push(...attachmentIds);
+            console.log(`✅ SEND_EMAIL - Added ${attachmentIds.length} attachment IDs from ${response.actionType}: [${attachmentIds.join(', ')}]`);
           }
 
           // Enhance email body with transaction summary if available
           if (response.response.data.results) {
             const transactionSummary = extractTransactionSummaryFromResponse(response.response.data);
-            if (transactionSummary && enhancedParams.body) {
-              enhancedParams.body += `\n\n${transactionSummary}`;
-              console.log('✅ Enhanced email body with transaction summary');
+            if (transactionSummary) {
+              emailBodyEnhancements.push(`${response.actionType}: ${transactionSummary}`);
+              console.log(`✅ SEND_EMAIL - Added transaction summary from ${response.actionType}`);
             }
           }
         }
+      }
+
+      // Remove duplicates from attachment IDs
+      const uniqueAttachmentIds = [...new Set(allAttachmentIds)];
+      
+      if (uniqueAttachmentIds.length > 0) {
+        enhancedParams.attachmentIds = uniqueAttachmentIds;
+        console.log(`✅ SEND_EMAIL - Final merged attachment IDs: [${uniqueAttachmentIds.join(', ')}] (${uniqueAttachmentIds.length} unique attachments from ${mcpSupplierResponses.length} nodes)`);
+      } else {
+        console.log('⚠️ SEND_EMAIL - No attachment IDs found in any previous responses');
+        enhancedParams.attachmentIds = [];
+      }
+
+      // Enhance email body with all transaction summaries
+      if (emailBodyEnhancements.length > 0 && enhancedParams.body) {
+        enhancedParams.body += `\n\n--- İşlem Özetleri ---\n${emailBodyEnhancements.join('\n')}`;
+        console.log(`✅ SEND_EMAIL - Enhanced email body with ${emailBodyEnhancements.length} transaction summaries`);
+      }
+
+      // Update email subject to reflect multiple attachments
+      if (uniqueAttachmentIds.length > 0 && enhancedParams.subject) {
+        enhancedParams.subject = `${enhancedParams.subject} (${uniqueAttachmentIds.length} Ek Dosya)`;
       }
     } 
 
