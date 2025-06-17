@@ -9,6 +9,10 @@ import "./globals.css";
 
 const inter = Inter({ subsets: ["latin"] });
 
+// Make store globally accessible
+if (typeof window !== 'undefined') {
+  (window as any).__REDUX_STORE__ = store;
+}
 
 export default function RootLayout({
   children,

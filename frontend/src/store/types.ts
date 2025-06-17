@@ -193,9 +193,36 @@ export interface Customer {
   email: string;
   phone: string;
   status: string;
-  createdAt: number[];
-  updatedAt: number[];
+  createdAt: string | null;
+  updatedAt: string | null;
   fullName: string;
+}
+
+// New interface for accumulated node responses
+export interface NodeResponse {
+  nodeId: string;
+  nodeType: string;
+  actionType?: string;
+  timestamp: string;
+  response: any;
+  customer?: any;
+}
+
+export interface AccumulatedResponses {
+  responses: NodeResponse[];
+  currentFlowId?: string;
+  lastUpdate: string;
+}
+
+export interface CustomerState {
+  activeCustomer: Customer | null;
+  searchResults: Customer[];
+  isSearching: boolean;
+  financeActionTypes: string[];
+  lastActionAnalysisResponse: ActionAnalysisResponse | null;
+  actionResultContent: string | null;
+  activeFinanceActionTypes: string[];
+  accumulatedResponses: AccumulatedResponses;
 }
 
 export interface CustomerSearchResponse {
@@ -356,17 +383,6 @@ export interface FirecrawlMcpConfig extends BaseMcpConfig {
 }
 
 export type McpConfig = SupabaseMcpConfig | GithubMcpConfig | FirecrawlMcpConfig;
-
-// Customer State
-export interface CustomerState {
-  activeCustomer: Customer | null;
-  searchResults: Customer[];
-  isSearching: boolean;
-  financeActionTypes: string[];
-  lastActionAnalysisResponse: ActionAnalysisResponse | null;
-  actionResultContent: string | null;
-  activeFinanceActionTypes: string[];
-}
 
 // MCP Action Types - Keep this as it's still used for typing but now populated from API
 export type MCPActionType = string; // Now dynamic instead of literal union

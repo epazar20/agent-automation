@@ -2,6 +2,8 @@ package com.example.mcpprovider.service;
 
 import com.example.mcpprovider.dto.EmailAttachmentDto;
 import com.example.mcpprovider.dto.EmailDto;
+import com.example.mcpprovider.dto.EmailResponseDto;
+import com.example.mcpprovider.dto.CustomerDto;
 import com.example.mcpprovider.entity.EmailAttachment;
 import com.example.mcpprovider.repository.EmailAttachmentRepository;
 import jakarta.mail.internet.MimeMessage;
@@ -30,9 +32,13 @@ public class EmailService {
     private final JavaMailSender emailSender;
     private final SpringTemplateEngine templateEngine;
     private final EmailAttachmentRepository emailAttachmentRepository;
+    private final CustomerService customerService;
 
-    public void sendSimpleEmail(EmailDto emailDto) {
+    public EmailResponseDto sendSimpleEmail(EmailDto emailDto) {
         try {
+            // Get customer information
+            CustomerDto customer = getCustomerInfo(emailDto.getCustomerId());
+            
             // Müşteri numarasını mesajın başına ekle
             String updatedBody = String.format("Müşteri numaranız: %s\n\n%s", 
                 emailDto.getCustomerId(), emailDto.getBody());
@@ -50,14 +56,34 @@ public class EmailService {
             
             emailSender.send(message);
             log.info("Simple email sent successfully to: esrefpazar@gmail.com");
+            
+            return EmailResponseDto.builder()
+                .success(true)
+                .message("Email sent successfully")
+                .attachmentIds(emailDto.getAttachmentIds())
+                .customer(customer)
+                .emailSentTo("esrefpazar@gmail.com")
+                .subject(emailDto.getSubject())
+                .build();
+                
         } catch (Exception e) {
             log.error("Failed to send simple email to: {}", emailDto.getTo(), e);
-            throw new RuntimeException("Failed to send email", e);
+            return EmailResponseDto.builder()
+                .success(false)
+                .message("Failed to send email: " + e.getMessage())
+                .attachmentIds(emailDto.getAttachmentIds())
+                .customer(getCustomerInfo(emailDto.getCustomerId()))
+                .emailSentTo(emailDto.getTo())
+                .subject(emailDto.getSubject())
+                .build();
         }
     }
 
-    public void sendHtmlEmail(EmailDto emailDto) {
+    public EmailResponseDto sendHtmlEmail(EmailDto emailDto) {
         try {
+            // Get customer information
+            CustomerDto customer = getCustomerInfo(emailDto.getCustomerId());
+            
             MimeMessage message = emailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message,
                     MimeMessageHelper.MULTIPART_MODE_MIXED_RELATED,
@@ -95,18 +121,40 @@ public class EmailService {
 
             emailSender.send(message);
             log.info("HTML email sent successfully to: esrefpazar@gmail.com");
+            
+            return EmailResponseDto.builder()
+                .success(true)
+                .message("HTML email sent successfully")
+                .attachmentIds(emailDto.getAttachmentIds())
+                .customer(customer)
+                .emailSentTo("esrefpazar@gmail.com")
+                .subject(emailDto.getSubject())
+                .build();
+                
         } catch (Exception e) {
             log.error("Failed to send HTML email to: {}", emailDto.getTo(), e);
-            throw new RuntimeException("Failed to send email", e);
+            return EmailResponseDto.builder()
+                .success(false)
+                .message("Failed to send HTML email: " + e.getMessage())
+                .attachmentIds(emailDto.getAttachmentIds())
+                .customer(getCustomerInfo(emailDto.getCustomerId()))
+                .emailSentTo(emailDto.getTo())
+                .subject(emailDto.getSubject())
+                .build();
         }
     }
 
-    public void sendEmailWithAttachmentIds(EmailDto emailDto, List<Long> attachmentIds) {
+    public EmailResponseDto sendEmailWithAttachmentIds(EmailDto emailDto, List<Long> attachmentIds) {
         try {
             log.info("Sending email with attachment IDs: {}", attachmentIds);
             
+            // Get customer information
+            CustomerDto customer = getCustomerInfo(emailDto.getCustomerId());
+            
             // Attachment ID'lerden dosyaları yükle
             List<EmailAttachmentDto> attachments = new ArrayList<>();
+            List<Long> successfulAttachmentIds = new ArrayList<>();
+            
             if (attachmentIds != null && !attachmentIds.isEmpty()) {
                 for (Long attachmentId : attachmentIds) {
                     EmailAttachment dbAttachment = emailAttachmentRepository.findById(attachmentId)
@@ -118,6 +166,7 @@ public class EmailService {
                             .content(Base64.getDecoder().decode(dbAttachment.getBase64Content()))
                             .build();
                         attachments.add(attachmentDto);
+                        successfulAttachmentIds.add(attachmentId);
                         log.info("Added attachment: {} (size: {} bytes)", 
                             dbAttachment.getFilename(), dbAttachment.getFileSize());
                     } else {
@@ -130,11 +179,23 @@ public class EmailService {
             emailDto.setAttachments(attachments);
             
             // HTML email gönder (attachment'lar için)
-            sendHtmlEmail(emailDto);
+            EmailResponseDto response = sendHtmlEmail(emailDto);
+            
+            // Update response with successful attachment IDs
+            response.setAttachmentIds(successfulAttachmentIds);
+            
+            return response;
             
         } catch (Exception e) {
             log.error("Failed to send email with attachments: {}", e.getMessage(), e);
-            throw new RuntimeException("Failed to send email with attachments", e);
+            return EmailResponseDto.builder()
+                .success(false)
+                .message("Failed to send email with attachments: " + e.getMessage())
+                .attachmentIds(attachmentIds)
+                .customer(getCustomerInfo(emailDto.getCustomerId()))
+                .emailSentTo(emailDto.getTo())
+                .subject(emailDto.getSubject())
+                .build();
         }
     }
 
@@ -146,21 +207,47 @@ public class EmailService {
         return templateEngine.process(emailDto.getTemplate(), context);
     }
 
-    public void sendWelcomeEmail(String to, String customerName, String accountNumber) {
-        EmailDto emailDto = EmailDto.builder()
-                .to("esrefpazar@gmail.com") // Test için tüm mailleri bu adrese yönlendir
-                .subject("Welcome to Our Financial Services")
-                .template("welcome-email")
-                .templateVariables(Map.of(
-                    "customerName", customerName,
-                    "accountNumber", accountNumber,
-                    "registrationDate", LocalDateTime.now(),
-                    "dashboardUrl", "https://your-domain.com/dashboard",
-                    "profileUrl", "https://your-domain.com/profile"
-                ))
-                .isHtml(true)
-                .build();
+    public EmailResponseDto sendWelcomeEmail(String to, String customerName, String accountNumber) {
+        try {
+            EmailDto emailDto = EmailDto.builder()
+                    .to("esrefpazar@gmail.com") // Test için tüm mailleri bu adrese yönlendir
+                    .subject("Welcome to Our Financial Services")
+                    .template("welcome-email")
+                    .templateVariables(Map.of(
+                        "customerName", customerName,
+                        "accountNumber", accountNumber,
+                        "registrationDate", LocalDateTime.now(),
+                        "dashboardUrl", "https://your-domain.com/dashboard",
+                        "profileUrl", "https://your-domain.com/profile"
+                    ))
+                    .isHtml(true)
+                    .build();
 
-        sendHtmlEmail(emailDto);
+            EmailResponseDto response = sendHtmlEmail(emailDto);
+            return response;
+            
+        } catch (Exception e) {
+            log.error("Failed to send welcome email", e);
+            return EmailResponseDto.builder()
+                .success(false)
+                .message("Failed to send welcome email: " + e.getMessage())
+                .emailSentTo(to)
+                .subject("Welcome to Our Financial Services")
+                .build();
+        }
+    }
+    
+    private CustomerDto getCustomerInfo(String customerId) {
+        if (customerId == null || customerId.trim().isEmpty()) {
+            return null;
+        }
+        
+        try {
+            Long id = Long.parseLong(customerId);
+            return customerService.getCustomerById(id).orElse(null);
+        } catch (NumberFormatException e) {
+            log.warn("Invalid customer ID format: {}", customerId);
+            return null;
+        }
     }
 } 

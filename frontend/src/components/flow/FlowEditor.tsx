@@ -15,7 +15,7 @@ import ReactFlow, {
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '@/store/types';
 import { addNode, updateNodePosition, addEdge, removeNode, removeEdge, updateExecutionResult } from '@/store/slices/flowSlice';
-import { setFinanceActionTypes, setLastActionAnalysisResponse, setActionResultContent, setActiveFinanceActionTypes, setActiveCustomer } from '@/store/slices/customerSlice';
+import { setFinanceActionTypes, setLastActionAnalysisResponse, setActionResultContent, setActiveFinanceActionTypes, setActiveCustomer, addNodeResponse, clearAccumulatedResponses } from '@/store/slices/customerSlice';
 import { AgentType, AgentNode, NodeType, FlowConnection, ExecutionResults, AgentConfig } from '@/store/types';
 import { createDefaultAgentConfig, defaultAgentConfigs } from '@/store/defaultConfigs';
 import { executeAgent } from '@/api/agents';
@@ -137,7 +137,7 @@ function Flow() {
   const dispatch = useDispatch();
   const { nodes, edges, executionResults } = useSelector((state: RootState) => state.flow);
   const { screenToFlowPosition } = useReactFlow();
-  const { activeCustomer } = useSelector((state: RootState) => state.customer);
+  const { activeCustomer, lastActionAnalysisResponse } = useSelector((state: RootState) => state.customer);
 
   // Cache conditional evaluation results to prevent multiple evaluations
   const conditionalResults = useMemo(() => {
@@ -239,6 +239,10 @@ function Flow() {
 
   const handleExecute = async () => {
     try {
+      // Clear accumulated responses at the start of new execution
+      dispatch(clearAccumulatedResponses());
+      console.log('🧹 FlowEditor - Cleared accumulated responses for new execution');
+      
       // Find all nodes (including result nodes for conditional handling)
       const allNodes = nodes;
       const agentNodes = nodes.filter((node: Node) => node.type !== 'resultNode');
@@ -443,6 +447,10 @@ function Flow() {
               console.log('✅ FlowEditor - Added activeCustomer to MCP Supplier Agent config:', currentActiveCustomer);
             }
             
+            // Pass accumulated responses to MCP Supplier Agent instead of lastActionAnalysisResponse
+            // The MCP Supplier Agent will use Redux selector to get accumulated responses
+            console.log('✅ FlowEditor - MCP Supplier Agent will use accumulated responses from Redux');
+            
             // If still no customer, check if there's a selectedCustomer in the original config
             if (!configToSend.selectedCustomer) {
               console.warn('⚠️ FlowEditor - MCP Supplier Agent has no customer selected');
@@ -463,6 +471,17 @@ function Flow() {
             nodeType: node.data.type,
             result
           });
+
+          // Save node response to accumulated responses in Redux
+          dispatch(addNodeResponse({
+            nodeId: node.id,
+            nodeType: node.data.type,
+            actionType: configToSend.actionType || null,
+            timestamp: new Date().toISOString(),
+            response: result,
+            customer: configToSend.selectedCustomer || currentActiveCustomer
+          }));
+          console.log(`💾 FlowEditor - Saved ${node.data.type} response to accumulated responses`);
 
           // Handle special processing for aiActionAnalysis
           if (node.data.type === 'aiActionAnalysis' && result) {

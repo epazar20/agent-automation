@@ -1,6 +1,7 @@
 package com.example.mcpprovider.controller;
 
 import com.example.mcpprovider.dto.EmailDto;
+import com.example.mcpprovider.dto.EmailResponseDto;
 import com.example.mcpprovider.service.EmailService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -17,40 +18,42 @@ public class EmailController {
     private final EmailService emailService;
 
     @PostMapping("/simple")
-    public ResponseEntity<Void> sendSimpleEmail(@RequestBody EmailDto emailDto) {
+    public ResponseEntity<EmailResponseDto> sendSimpleEmail(@RequestBody EmailDto emailDto) {
         log.info("Sending simple email to: {} with attachmentIds: {}", emailDto.getTo(), emailDto.getAttachmentIds());
         
+        EmailResponseDto response;
         // Eğer attachment ID'leri varsa, onları kullanarak gönder
         if (emailDto.getAttachmentIds() != null && !emailDto.getAttachmentIds().isEmpty()) {
-            emailService.sendEmailWithAttachmentIds(emailDto, emailDto.getAttachmentIds());
+            response = emailService.sendEmailWithAttachmentIds(emailDto, emailDto.getAttachmentIds());
         } else {
-            emailService.sendSimpleEmail(emailDto);
+            response = emailService.sendSimpleEmail(emailDto);
         }
         
-        return ResponseEntity.ok().build();
+        return ResponseEntity.ok(response);
     }
 
     @PostMapping("/html")
-    public ResponseEntity<Void> sendHtmlEmail(@RequestBody EmailDto emailDto) {
+    public ResponseEntity<EmailResponseDto> sendHtmlEmail(@RequestBody EmailDto emailDto) {
         log.info("Sending HTML email to: {} with attachmentIds: {}", emailDto.getTo(), emailDto.getAttachmentIds());
         
+        EmailResponseDto response;
         // Eğer attachment ID'leri varsa, onları kullanarak gönder
         if (emailDto.getAttachmentIds() != null && !emailDto.getAttachmentIds().isEmpty()) {
-            emailService.sendEmailWithAttachmentIds(emailDto, emailDto.getAttachmentIds());
+            response = emailService.sendEmailWithAttachmentIds(emailDto, emailDto.getAttachmentIds());
         } else {
-            emailService.sendHtmlEmail(emailDto);
+            response = emailService.sendHtmlEmail(emailDto);
         }
         
-        return ResponseEntity.ok().build();
+        return ResponseEntity.ok(response);
     }
 
     @PostMapping("/welcome")
-    public ResponseEntity<Void> sendWelcomeEmail(
+    public ResponseEntity<EmailResponseDto> sendWelcomeEmail(
             @RequestParam String to,
             @RequestParam String customerName,
             @RequestParam String accountNumber) {
         log.info("Sending welcome email to: {}", to);
-        emailService.sendWelcomeEmail(to, customerName, accountNumber);
-        return ResponseEntity.ok().build();
+        EmailResponseDto response = emailService.sendWelcomeEmail(to, customerName, accountNumber);
+        return ResponseEntity.ok(response);
     }
 } 

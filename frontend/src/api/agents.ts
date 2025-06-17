@@ -231,81 +231,75 @@ export async function executeMCPSupplierAgent(config: any) {
   try {
     console.log('🎯 MCP Supplier Agent - Starting execution:', config);
     
-    // Parse content to get parameters - always parse fresh from content
+    // Get accumulated responses from Redux store using proper method
+    let accumulatedResponses = null;
+    if (typeof window !== 'undefined') {
+      try {
+        // Try to get store state directly from global store reference
+        let storeState = null;
+        
+        if ((window as any).__REDUX_STORE__) {
+          storeState = (window as any).__REDUX_STORE__.getState();
+          console.log('✅ MCP Supplier Agent - Accessing store via __REDUX_STORE__');
+        }
+        
+        if (storeState) {
+          accumulatedResponses = storeState.customer?.accumulatedResponses;
+          console.log('🔍 MCP Supplier Agent - Accumulated responses from Redux:', JSON.stringify(accumulatedResponses, null, 2));
+        } else {
+          console.log('⚠️ No Redux store state available, will use alternative preprocessing');
+        }
+      } catch (error) {
+        console.warn('⚠️ Could not access Redux store:', error);
+      }
+    }
+    
+    // Preprocess accumulated responses to create parameters for current action type
     let parsedParameters = null;
     
-    if (config.content) {
-      console.log('🔄 MCP Supplier Agent - Parsing content:', config.content);
+    if (accumulatedResponses && accumulatedResponses.responses && config.actionType) {
+      console.log('🔄 MCP Supplier Agent - Preprocessing accumulated responses for action type:', config.actionType);
+      
+      const preprocessedData = preprocessAccumulatedResponses(
+        accumulatedResponses.responses,
+        config.actionType,
+        config.selectedCustomer
+      );
+      
+      if (preprocessedData) {
+        console.log('✅ MCP Supplier Agent - Preprocessed data created:', JSON.stringify(preprocessedData, null, 2));
+        parsedParameters = preprocessedData;
+      }
+    }
+    
+    
+    
+    // Fallback: try to parse content if no preprocessed data available
+    if (!parsedParameters && config.content) {
+      console.log('🔄 MCP Supplier Agent - Fallback: parsing content directly');
       parsedParameters = parseMCPContent(config.content);
-      console.log('✅ MCP Supplier Agent - Content parsed successfully:', parsedParameters);
-    } else if (config.parsedParameters) {
-      // Fallback to existing parsed parameters if no content
+      console.log('✅ MCP Supplier Agent - Content parsed successfully:', JSON.stringify(parsedParameters, null, 2));
+    }
+    
+    // Fallback: use existing parsed parameters
+    if (!parsedParameters && config.parsedParameters) {
       parsedParameters = config.parsedParameters;
-      console.log('🔄 MCP Supplier Agent - Using existing parsedParameters:', parsedParameters);
-    } else if (config.actionType) {
-      // If no content or parsed parameters, but we have an action type, create default parameters
-      console.log('🔧 MCP Supplier Agent - Creating default parameters for action type:', config.actionType);
-      
-      // Get customer information first
-      let customerToUse = null;
-      
-      // First try to get activeCustomer from store
-      if (typeof window !== 'undefined') {
-        const storeState = (window as any).__REDUX_STORE__?.getState();
-        if (storeState?.customer?.activeCustomer) {
-          customerToUse = storeState.customer.activeCustomer;
-          console.log('✅ MCP Supplier Agent - Using activeCustomer from store for default params:', customerToUse);
-        }
-      }
-      
-      // If no activeCustomer, try selectedCustomer from config
-      if (!customerToUse && config.selectedCustomer) {
-        customerToUse = config.selectedCustomer;
-        console.log('✅ MCP Supplier Agent - Using selectedCustomer from config for default params:', customerToUse);
-      }
-      
-      if (customerToUse) {
-        // Create default parameters based on action type
-        const defaultParams = createDefaultMCPParameters(config.actionType, customerToUse);
-        parsedParameters = {
-          selectedActions: [config.actionType],
-          parameters: {
-            [config.actionType]: defaultParams
-          }
-        };
-        console.log('✅ MCP Supplier Agent - Created default parameters:', parsedParameters);
-      } else {
-        console.log('❌ MCP Supplier Agent - No customer available for default parameters');
-      }
+      console.log('🔄 MCP Supplier Agent - Using existing parsedParameters:', JSON.stringify(parsedParameters, null, 2));
     }
-
+    
     if (!parsedParameters) {
-      throw new Error('No content or parsed parameters available for execution');
+      throw new Error('No content, accumulated responses, or parsed parameters available for execution');
     }
 
-    // Get customer information - prioritize activeCustomer from store
+    // Get customer information - prioritize selectedCustomer from config
     let customerToUse = null;
     
-    // First try to get activeCustomer from store
-    if (typeof window !== 'undefined') {
-      const storeState = (window as any).__REDUX_STORE__?.getState();
-      if (storeState?.customer?.activeCustomer) {
-        customerToUse = storeState.customer.activeCustomer;
-        console.log('✅ MCP Supplier Agent - Using activeCustomer from store:', customerToUse);
-      }
-    }
-    
-    // If no activeCustomer, try selectedCustomer from config
-    if (!customerToUse && config.selectedCustomer) {
+    if (config.selectedCustomer) {
       customerToUse = config.selectedCustomer;
       console.log('✅ MCP Supplier Agent - Using selectedCustomer from config:', customerToUse);
-    }
-    
-    // If still no customer, try to extract from parsedParameters
-    if (!customerToUse && parsedParameters) {
+    } else if (parsedParameters) {
       const customerId = extractCustomerIdFromParameters(parsedParameters);
       if (customerId) {
-        // Create a minimal customer object with the ID
         customerToUse = { id: customerId, customerNo: customerId };
         console.log('✅ MCP Supplier Agent - Using customerId from parameters:', customerToUse);
       }
@@ -325,7 +319,7 @@ export async function executeMCPSupplierAgent(config: any) {
       }
     }
 
-    console.log('🔍 MCP Supplier Agent - Final parsedParameters before execution:', parsedParameters);
+    console.log('🔍 MCP Supplier Agent - Final parsedParameters before execution:', JSON.stringify(parsedParameters, null, 2));
 
     // Execute MCP request
     const response = await executeMCPRequest({
@@ -333,7 +327,7 @@ export async function executeMCPSupplierAgent(config: any) {
       parsedParameters: parsedParameters,
       modelConfig: config.modelConfig,
       content: config.content,
-      actionType: config.actionType || 'GENERATE_STATEMENT' // Default fallback
+      actionType: config.actionType
     });
 
     console.log('✅ MCP Supplier Agent - Response received:', response);
@@ -351,59 +345,184 @@ export async function executeMCPSupplierAgent(config: any) {
   }
 }
 
-// Helper function to create default MCP parameters based on action type
-function createDefaultMCPParameters(actionType: string, customer: any): any {
-  const currentDate = new Date();
-  const oneYearAgo = new Date(currentDate);
-  oneYearAgo.setFullYear(currentDate.getFullYear() - 1);
-  
-  const baseParams = {
-    actionType: actionType,
-    customerId: customer.id.toString(),
-    startDate: oneYearAgo.toISOString().split('T')[0] + 'T00:00:00',
-    endDate: currentDate.toISOString().split('T')[0] + 'T23:59:59',
-  };
+// New function to preprocess accumulated responses for current action type
+function preprocessAccumulatedResponses(
+  responses: any[],
+  currentActionType: string,
+  currentCustomer: any
+): any | null {
+  try {
+    console.log('🔄 Preprocessing accumulated responses:', {
+      totalResponses: responses.length,
+      currentActionType,
+      hasCustomer: !!currentCustomer
+    });
 
-  switch (actionType) {
-    case 'GENERATE_STATEMENT':
-      return {
-        ...baseParams,
-        direction: 'out',
-        transactionType: 'purchase',
-        category: null,
-        descriptionContains: null,
-        limit: null,
-        order: 'desc',
-        currency: null,
-        emailFlag: true
-      };
+    if (!responses || responses.length === 0) {
+      console.log('❌ No accumulated responses available for preprocessing');
+      return null;
+    }
+
+    // Find AI Action Analysis response to get base parameters
+    const aiActionAnalysisResponse = responses.find(r => r.nodeType === 'aiActionAnalysis');
+    let baseParameters = null;
+
+    if (aiActionAnalysisResponse && aiActionAnalysisResponse.response) {
+      console.log('✅ Found AI Action Analysis response:', JSON.stringify(aiActionAnalysisResponse.response, null, 2));
+      
+      // Parse the AI Action Analysis content to get parameters
+      try {
+        if (aiActionAnalysisResponse.response.content) {
+          const parsedContent = parseMCPContent(aiActionAnalysisResponse.response.content);
+          if (parsedContent && parsedContent.parameters && parsedContent.parameters[currentActionType]) {
+            baseParameters = parsedContent.parameters[currentActionType];
+            console.log('✅ Extracted base parameters from AI Action Analysis:', JSON.stringify(baseParameters, null, 2));
+          }
+        }
+      } catch (error) {
+        console.warn('⚠️ Could not parse AI Action Analysis content:', error);
+      }
+    }
+
     
-    case 'SEND_EMAIL':
-      return {
-        ...baseParams,
-        to: customer.email || '',
-        subject: 'Finansal Rapor',
-        body: 'Sayın müşterimiz, finansal raporunuz ektedir.',
-        attachmentIds: []
-      };
-    
-    case 'PROCESS_PAYMENT':
-      return {
-        ...baseParams,
-        amount: 0,
-        currency: 'TRY',
-        description: 'Ödeme işlemi',
-        paymentMethod: 'bank_transfer'
-      };
-    
-    default:
-      return {
-        ...baseParams,
-        description: `${actionType} işlemi`,
-        metadata: {}
-      };
+
+    if (!baseParameters) {
+      console.log('❌ Could not create base parameters');
+      return null;
+    }
+
+    let enhancedParams = { ...baseParameters };
+
+    // Enhance parameters based on previous node responses
+    console.log('🔄 Enhancing parameters with data from previous responses...');
+
+    if (currentActionType === 'SEND_EMAIL') {
+      // For SEND_EMAIL, look for  responses to get attachment IDs
+      const generateStatementResponses = responses.filter(r => 
+        r.nodeType === 'mcpSupplierAgent'
+      );
+
+      for (const response of generateStatementResponses) {
+        if (response.response && response.response.data) {
+          // Look for attachment IDs in the API response
+          const attachmentIds = extractAttachmentIdsFromResponse(response.response.data);
+          if (attachmentIds && attachmentIds.length > 0) {
+            enhancedParams.attachmentIds = attachmentIds;
+            console.log('✅ Added attachment IDs from response:', attachmentIds);
+          }
+
+          // Enhance email body with transaction summary if available
+          if (response.response.data.results) {
+            const transactionSummary = extractTransactionSummaryFromResponse(response.response.data);
+            if (transactionSummary && enhancedParams.body) {
+              enhancedParams.body += `\n\n${transactionSummary}`;
+              console.log('✅ Enhanced email body with transaction summary');
+            }
+          }
+        }
+      }
+    } 
+
+    // Create the final preprocessed structure
+    const preprocessedResult = {
+      selectedActions: [currentActionType],
+      parameters: {
+        [currentActionType]: enhancedParams
+      },
+      metadata: {
+        preprocessedFrom: 'accumulatedResponses',
+        responseCount: responses.length,
+        aiActionAnalysisUsed: !!aiActionAnalysisResponse,
+        enhancementsApplied: true,
+        timestamp: new Date().toISOString()
+      }
+    };
+
+    console.log('✅ Successfully preprocessed accumulated responses:', JSON.stringify(preprocessedResult, null, 2));
+    return preprocessedResult;
+
+  } catch (error) {
+    console.error('❌ Error preprocessing accumulated responses:', error);
+    return null;
   }
 }
+
+// Helper function to extract attachment IDs from API response
+function extractAttachmentIdsFromResponse(responseData: any): number[] | null {
+  try {
+    if (responseData.results && Array.isArray(responseData.results)) {
+      for (const result of responseData.results) {
+        if (result.status === 'success' && result.data && result.data.attachmentIds) {
+          if (Array.isArray(result.data.attachmentIds)) {
+            return result.data.attachmentIds;
+          }
+        }
+      }
+    }
+    
+    // Also check direct attachmentIds property
+    if (responseData.attachmentIds && Array.isArray(responseData.attachmentIds)) {
+      return responseData.attachmentIds;
+    }
+    
+    return null;
+  } catch (error) {
+    console.warn('⚠️ Error extracting attachment IDs:', error);
+    return null;
+  }
+}
+
+// Helper function to extract transaction summary from API response
+function extractTransactionSummaryFromResponse(responseData: any): string | null {
+  try {
+    if (responseData.results && Array.isArray(responseData.results)) {
+      for (const result of responseData.results) {
+        if (result.status === 'success' && result.data && result.data.transactions) {
+          const transactions = result.data.transactions;
+          if (Array.isArray(transactions)) {
+            const count = transactions.length;
+            const total = transactions.reduce((sum: number, tx: any) => sum + (tx.amount || 0), 0);
+            return `Özet: ${count} işlem tespit edildi, toplam tutar: ${total.toFixed(2)} TL`;
+          }
+        }
+      }
+    }
+    return null;
+  } catch (error) {
+    console.warn('⚠️ Error extracting transaction summary:', error);
+    return null;
+  }
+}
+
+// Helper function to extract reference data from API response
+function extractReferenceDataFromResponse(responseData: any): any | null {
+  try {
+    const referenceData: any = {};
+    
+    if (responseData.results && Array.isArray(responseData.results)) {
+      for (const result of responseData.results) {
+        if (result.status === 'success' && result.data) {
+          // Add balance information if available
+          if (result.data.balance) {
+            referenceData.availableBalance = result.data.balance;
+          }
+          
+          // Add latest transaction ID as reference
+          if (result.data.transactions && Array.isArray(result.data.transactions) && result.data.transactions.length > 0) {
+            referenceData.referenceTransactionId = result.data.transactions[0].id;
+          }
+        }
+      }
+    }
+    
+    return Object.keys(referenceData).length > 0 ? referenceData : null;
+  } catch (error) {
+    console.warn('⚠️ Error extracting reference data:', error);
+    return null;
+  }
+}
+
+
 
 export async function executeConditional(config: any) {
   try {
