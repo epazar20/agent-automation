@@ -231,14 +231,56 @@ export async function executeMCPSupplierAgent(config: any) {
   try {
     console.log('🎯 MCP Supplier Agent - Starting execution:', config);
     
-    // Parse content to get parameters
-    const parsedParameters = config.parsedParameters || parseMCPContent(config.content);
-    console.log('🔍 MCP Supplier Agent - Initial parsedParameters:', parsedParameters);
+    // Parse content to get parameters - always parse fresh from content
+    let parsedParameters = null;
     
     if (config.content) {
       console.log('🔄 MCP Supplier Agent - Parsing content:', config.content);
-      const parsed = parseMCPContent(config.content);
-      console.log('✅ MCP Supplier Agent - Content parsed successfully:', parsed);
+      parsedParameters = parseMCPContent(config.content);
+      console.log('✅ MCP Supplier Agent - Content parsed successfully:', parsedParameters);
+    } else if (config.parsedParameters) {
+      // Fallback to existing parsed parameters if no content
+      parsedParameters = config.parsedParameters;
+      console.log('🔄 MCP Supplier Agent - Using existing parsedParameters:', parsedParameters);
+    } else if (config.actionType) {
+      // If no content or parsed parameters, but we have an action type, create default parameters
+      console.log('🔧 MCP Supplier Agent - Creating default parameters for action type:', config.actionType);
+      
+      // Get customer information first
+      let customerToUse = null;
+      
+      // First try to get activeCustomer from store
+      if (typeof window !== 'undefined') {
+        const storeState = (window as any).__REDUX_STORE__?.getState();
+        if (storeState?.customer?.activeCustomer) {
+          customerToUse = storeState.customer.activeCustomer;
+          console.log('✅ MCP Supplier Agent - Using activeCustomer from store for default params:', customerToUse);
+        }
+      }
+      
+      // If no activeCustomer, try selectedCustomer from config
+      if (!customerToUse && config.selectedCustomer) {
+        customerToUse = config.selectedCustomer;
+        console.log('✅ MCP Supplier Agent - Using selectedCustomer from config for default params:', customerToUse);
+      }
+      
+      if (customerToUse) {
+        // Create default parameters based on action type
+        const defaultParams = createDefaultMCPParameters(config.actionType, customerToUse);
+        parsedParameters = {
+          selectedActions: [config.actionType],
+          parameters: {
+            [config.actionType]: defaultParams
+          }
+        };
+        console.log('✅ MCP Supplier Agent - Created default parameters:', parsedParameters);
+      } else {
+        console.log('❌ MCP Supplier Agent - No customer available for default parameters');
+      }
+    }
+
+    if (!parsedParameters) {
+      throw new Error('No content or parsed parameters available for execution');
     }
 
     // Get customer information - prioritize activeCustomer from store
@@ -247,8 +289,8 @@ export async function executeMCPSupplierAgent(config: any) {
     // First try to get activeCustomer from store
     if (typeof window !== 'undefined') {
       const storeState = (window as any).__REDUX_STORE__?.getState();
-      if (storeState?.settings?.activeCustomer) {
-        customerToUse = storeState.settings.activeCustomer;
+      if (storeState?.customer?.activeCustomer) {
+        customerToUse = storeState.customer.activeCustomer;
         console.log('✅ MCP Supplier Agent - Using activeCustomer from store:', customerToUse);
       }
     }
@@ -274,12 +316,24 @@ export async function executeMCPSupplierAgent(config: any) {
       throw new Error('Müşteri bilgisi bulunamadı. Müşteri seçin veya JSON verisinde customerId bulundurun.');
     }
 
+    // Ensure customerId is present in the action parameters
+    if (parsedParameters && parsedParameters.parameters && config.actionType) {
+      const actionParams = parsedParameters.parameters[config.actionType];
+      if (actionParams && !actionParams.customerId) {
+        actionParams.customerId = customerToUse.id.toString();
+        console.log('✅ MCP Supplier Agent - Added customerId to action parameters:', actionParams.customerId);
+      }
+    }
+
+    console.log('🔍 MCP Supplier Agent - Final parsedParameters before execution:', parsedParameters);
+
     // Execute MCP request
     const response = await executeMCPRequest({
       customer: customerToUse,
       parsedParameters: parsedParameters,
       modelConfig: config.modelConfig,
-      content: config.content
+      content: config.content,
+      actionType: config.actionType || 'GENERATE_STATEMENT' // Default fallback
     });
 
     console.log('✅ MCP Supplier Agent - Response received:', response);
@@ -294,6 +348,60 @@ export async function executeMCPSupplierAgent(config: any) {
   } catch (error) {
     console.log('❌ MCP Supplier Agent API Error:', error);
     throw new Error(`MCP Supplier Agent hatası: ${error}`);
+  }
+}
+
+// Helper function to create default MCP parameters based on action type
+function createDefaultMCPParameters(actionType: string, customer: any): any {
+  const currentDate = new Date();
+  const oneYearAgo = new Date(currentDate);
+  oneYearAgo.setFullYear(currentDate.getFullYear() - 1);
+  
+  const baseParams = {
+    actionType: actionType,
+    customerId: customer.id.toString(),
+    startDate: oneYearAgo.toISOString().split('T')[0] + 'T00:00:00',
+    endDate: currentDate.toISOString().split('T')[0] + 'T23:59:59',
+  };
+
+  switch (actionType) {
+    case 'GENERATE_STATEMENT':
+      return {
+        ...baseParams,
+        direction: 'out',
+        transactionType: 'purchase',
+        category: null,
+        descriptionContains: null,
+        limit: null,
+        order: 'desc',
+        currency: null,
+        emailFlag: true
+      };
+    
+    case 'SEND_EMAIL':
+      return {
+        ...baseParams,
+        to: customer.email || '',
+        subject: 'Finansal Rapor',
+        body: 'Sayın müşterimiz, finansal raporunuz ektedir.',
+        attachmentIds: []
+      };
+    
+    case 'PROCESS_PAYMENT':
+      return {
+        ...baseParams,
+        amount: 0,
+        currency: 'TRY',
+        description: 'Ödeme işlemi',
+        paymentMethod: 'bank_transfer'
+      };
+    
+    default:
+      return {
+        ...baseParams,
+        description: `${actionType} işlemi`,
+        metadata: {}
+      };
   }
 }
 

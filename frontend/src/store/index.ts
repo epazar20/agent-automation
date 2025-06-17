@@ -3,6 +3,7 @@ import flowReducer from './slices/flowSlice';
 import settingsReducer from './slices/settingsSlice';
 import historyReducer from './slices/historySlice';
 import customerReducer from './slices/customerSlice';
+import actionTypesReducer from './slices/actionTypesSlice';
 
 export const store = configureStore({
   reducer: {
@@ -10,6 +11,7 @@ export const store = configureStore({
     settings: settingsReducer,
     history: historyReducer,
     customer: customerReducer,
+    actionTypes: actionTypesReducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({

@@ -45,10 +45,11 @@ import {
 } from '@/store/types';
 import { toast } from 'sonner';
 import { defaultAgentConfigs, createDefaultAgentConfig } from '@/store/defaultConfigs';
-import { getMCPActionConfig, parseContentForAction } from '@/store/mcpConstants';
+import { getMCPActionConfig, parseContentForAction, parseMCPContent } from '@/store/mcpConstants';
 import ModelConfigForm from './ModelConfigForm';
 import { RootState } from '@/store';
 import CustomerSearch from '@/components/ui/customer-search';
+import ActionTypeSelector from '@/components/ui/action-type-selector';
 import { setActiveCustomer, setFinanceActionTypes, setLastActionAnalysisResponse } from '@/store/slices/customerSlice';
 import { fetchEmailAttachments } from '@/api/agents';
 
@@ -247,7 +248,29 @@ export default function AIAgentNode({ id, data }: AIAgentNodeProps) {
             console.log('⏭️ MCP parsedParameters unchanged');
           }
         } else {
-          console.log('❌ MCP No valid parameters found');
+          // Try parsing with the new general MCP content parser
+          const generalParsed = parseMCPContent(mcpConfig.content);
+          console.log('🔄 MCP General parsing result:', generalParsed);
+          
+          if (generalParsed) {
+            // Ensure customerId is added to the action parameters
+            if (generalParsed.parameters && generalParsed.parameters[mcpConfig.actionType]) {
+              const actionParams = generalParsed.parameters[mcpConfig.actionType];
+              if (!actionParams.customerId) {
+                const customerToUse = activeCustomer || mcpConfig.selectedCustomer;
+                if (customerToUse && customerToUse.id) {
+                  actionParams.customerId = customerToUse.id.toString();
+                  console.log('✅ MCP Added customerId to general parsed params:', actionParams.customerId);
+                }
+              }
+            }
+            
+            updateMCPSupplierAgentConfig({ 
+              parsedParameters: generalParsed 
+            });
+          } else {
+            console.log('❌ MCP No valid parameters found');
+          }
         }
       } else {
         console.log('❌ MCP No content to parse');
@@ -363,7 +386,7 @@ export default function AIAgentNode({ id, data }: AIAgentNodeProps) {
       const mcpConfig = config as MCPSupplierAgentConfig;
       if (mcpConfig.actionType) {
         const actionConfig = getMCPActionConfig(mcpConfig.actionType);
-        return `${actionConfig.label} Agent`;
+        return `${actionConfig.label} AGENT`;
       }
       return 'MCP Supplier Agent';
     }
@@ -376,7 +399,7 @@ export default function AIAgentNode({ id, data }: AIAgentNodeProps) {
       const mcpConfig = config as MCPSupplierAgentConfig;
       if (mcpConfig.actionType) {
         const actionConfig = getMCPActionConfig(mcpConfig.actionType);
-        return `${actionConfig.label} işlemlerini gerçekleştirir`;
+        return actionConfig.description || `${actionConfig.label} işlemlerini gerçekleştirir`;
       }
       return 'MCP protokolü ile tedarikçi entegrasyonu';
     }
@@ -577,11 +600,10 @@ export default function AIAgentNode({ id, data }: AIAgentNodeProps) {
             {data.type === 'mcpSupplierAgent' && (
               <>
                 <div className="space-y-2">
-                  <Label>Action Tipi</Label>
-                  <div className="p-3 rounded-md border border-input bg-muted">
-                    <div className="text-sm font-medium">EKSTRE ÜRETİMİ</div>
-                    <div className="text-xs text-muted-foreground mt-1">GENERATE_STATEMENT</div>
-                  </div>
+                  <ActionTypeSelector
+                    onActionTypeSelect={(actionType) => updateMCPSupplierAgentConfig({ actionType })}
+                    selectedActionType={(config as MCPSupplierAgentConfig).actionType}
+                  />
                 </div>
 
                 <div className="space-y-2">

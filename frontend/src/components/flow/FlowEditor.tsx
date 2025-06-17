@@ -137,6 +137,7 @@ function Flow() {
   const dispatch = useDispatch();
   const { nodes, edges, executionResults } = useSelector((state: RootState) => state.flow);
   const { screenToFlowPosition } = useReactFlow();
+  const { activeCustomer } = useSelector((state: RootState) => state.customer);
 
   // Cache conditional evaluation results to prevent multiple evaluations
   const conditionalResults = useMemo(() => {
@@ -249,6 +250,10 @@ function Flow() {
       
       // Create a map to store results
       const resultMap = new Map();
+      
+      // Get active customer from Redux store
+      const currentActiveCustomer = activeCustomer;
+      console.log('🔍 FlowEditor - Current active customer from store:', currentActiveCustomer);
       
       // Clear all ResultNodes at the start
       const resultNodes = nodes.filter((node: Node) => node.type === 'resultNode');
@@ -417,6 +422,31 @@ function Flow() {
             
             // Set the content in config
             configToSend.content = typeof content === 'object' ? JSON.stringify(content) : content;
+          }
+
+          // Ensure customer information is available for nodes that need it
+          if (node.data.type === 'aiActionAnalysis') {
+            // For AI Action Analysis, ensure selectedCustomer is set from activeCustomer if not already set
+            if (!configToSend.selectedCustomer && currentActiveCustomer) {
+              configToSend.selectedCustomer = currentActiveCustomer;
+              console.log('✅ FlowEditor - Added activeCustomer to AI Action Analysis config:', currentActiveCustomer);
+            }
+            
+            // If still no customer, check if there's a selectedCustomer in the original config
+            if (!configToSend.selectedCustomer) {
+              console.warn('⚠️ FlowEditor - AI Action Analysis has no customer selected');
+            }
+          } else if (node.data.type === 'mcpSupplierAgent') {
+            // For MCP Supplier Agent, ensure selectedCustomer is set from activeCustomer if not already set
+            if (!configToSend.selectedCustomer && currentActiveCustomer) {
+              configToSend.selectedCustomer = currentActiveCustomer;
+              console.log('✅ FlowEditor - Added activeCustomer to MCP Supplier Agent config:', currentActiveCustomer);
+            }
+            
+            // If still no customer, check if there's a selectedCustomer in the original config
+            if (!configToSend.selectedCustomer) {
+              console.warn('⚠️ FlowEditor - MCP Supplier Agent has no customer selected');
+            }
           }
 
           // Execute the node

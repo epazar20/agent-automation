@@ -17,6 +17,28 @@ export type AgentType =
 // LLM Model Tipleri
 export type LLMType = 'openai' | 'huggingface' | 'anthropic' | 'google';
 
+// Finance Action Types
+export interface FinanceActionType {
+  id: number;
+  typeCode: string;
+  typeName: string;
+  description: string;
+  samplePrompt: string;
+  endpointPath: string;
+  jsonSchema: string;
+  isActive: boolean;
+  sortOrder: number;
+  createdAt: number[];
+  updatedAt: number[];
+}
+
+export interface ActionTypesState {
+  actionTypes: FinanceActionType[];
+  isLoading: boolean;
+  error: string | null;
+  lastFetched: number | null;
+}
+
 // Temel Model Konfigürasyonları
 interface BaseModelConfig {
   model: string;
@@ -346,15 +368,15 @@ export interface CustomerState {
   activeFinanceActionTypes: string[];
 }
 
-// MCP Action Types
-export type MCPActionType = 'GENERATE_STATEMENT';
-// Future action types can be added here:
-// | 'SEND_EMAIL' | 'GENERATE_REPORT' | 'PROCESS_PAYMENT' etc.
+// MCP Action Types - Keep this as it's still used for typing but now populated from API
+export type MCPActionType = string; // Now dynamic instead of literal union
 
 export interface MCPActionConfig {
-  type: MCPActionType;
+  type: string;
   label: string;
   endpoint: string;
+  description?: string;
+  jsonSchema?: string;
 }
 
 // MCP Supplier Agent Configuration
@@ -404,4 +426,5 @@ export interface RootState {
   history: HistoryEntry[];
   settings: Settings;
   customer: CustomerState;
+  actionTypes: ActionTypesState;
 } 

@@ -1,22 +1,49 @@
-import { MCPActionType, MCPActionConfig } from './types';
+import { MCPActionType, MCPActionConfig, FinanceActionType } from './types';
+import axios from 'axios';
 
-// MCP Action Configurations
-export const MCP_ACTION_CONFIGS: Record<MCPActionType, MCPActionConfig> = {
-  GENERATE_STATEMENT: {
-    type: 'GENERATE_STATEMENT',
-    label: 'EKSTRE ÜRETİMİ',
-    endpoint: '/transactions/statement'
-  }
-};
+// Dynamic MCP Action Configurations - populated from API
+let dynamicActionConfigs: Record<string, MCPActionConfig> = {};
+
+// Initialize action configs from finance action types
+export function initializeMCPActionConfigs(actionTypes: FinanceActionType[]) {
+  dynamicActionConfigs = {};
+  actionTypes.forEach(actionType => {
+    if (actionType.isActive) {
+      dynamicActionConfigs[actionType.typeCode] = {
+        type: actionType.typeCode,
+        label: actionType.typeName,
+        endpoint: actionType.endpointPath,
+        description: actionType.description,
+        jsonSchema: actionType.jsonSchema,
+      };
+    }
+  });
+  console.log('🔧 MCP Action Configs initialized:', Object.keys(dynamicActionConfigs));
+}
 
 // Helper function to get action config
 export function getMCPActionConfig(actionType: MCPActionType): MCPActionConfig {
-  return MCP_ACTION_CONFIGS[actionType];
+  const config = dynamicActionConfigs[actionType];
+  if (!config) {
+    console.warn(`⚠️ MCP Action config not found for type: ${actionType}`);
+    return {
+      type: actionType,
+      label: actionType,
+      endpoint: '/api/unknown',
+      description: 'Unknown action type',
+    };
+  }
+  return config;
 }
 
 // Helper function to get all available actions
 export function getAvailableMCPActions(): MCPActionConfig[] {
-  return Object.values(MCP_ACTION_CONFIGS);
+  return Object.values(dynamicActionConfigs);
+}
+
+// Helper function to check if action type exists
+export function isValidMCPActionType(actionType: string): boolean {
+  return actionType in dynamicActionConfigs;
 }
 
 // JSON Parser for content preprocessing
@@ -87,10 +114,23 @@ export function parseMCPContent(content: string): any {
       return null;
     }
     
-    // Return the parsed data as-is for general parsing
-    if (jsonData.selectedActions || jsonData.parameters || jsonData.actionType) {
-      console.log('🎯 MCP Content Parser - Found direct action object:', jsonData);
+    // Check if it's AI Action Analysis format (has selectedActions and parameters)
+    if (jsonData.selectedActions || jsonData.parameters) {
+      console.log('🎯 MCP Content Parser - Found AI Action Analysis format:', jsonData);
       return jsonData;
+    }
+    
+    // Check if it's a direct action object (independent node usage)
+    if (jsonData.actionType) {
+      console.log('🎯 MCP Content Parser - Found direct action object, converting to MCP format');
+      // Convert direct action object to MCP format
+      const actionType = jsonData.actionType;
+      return {
+        selectedActions: [actionType],
+        parameters: {
+          [actionType]: jsonData
+        }
+      };
     }
 
     console.log('❌ MCP Content Parser - No valid MCP structure found');
@@ -124,36 +164,60 @@ export function extractCustomerIdFromParameters(parsedParameters: any): string |
   return null;
 }
 
-// Execute MCP request
+// Execute MCP request with dynamic endpoint
 export async function executeMCPRequest(params: {
   customer: any;
   parsedParameters: any;
   modelConfig: any;
   content: string;
+  actionType: string;
 }): Promise<any> {
-  const { customer, parsedParameters, modelConfig, content } = params;
+  const { customer, parsedParameters, modelConfig, content, actionType } = params;
   
   try {
     console.log('🚀 MCP Request - Executing with params:', {
       customerId: customer.id || customer.customerNo,
       parsedParameters,
-      modelConfig
+      modelConfig,
+      actionType
+    });
+
+    // Detailed debugging of parsedParameters structure
+    console.log('🔍 MCP Request - Detailed parsedParameters analysis:', {
+      parsedParameters: parsedParameters,
+      type: typeof parsedParameters,
+      isNull: parsedParameters === null,
+      isUndefined: parsedParameters === undefined,
+      hasSelectedActions: parsedParameters && parsedParameters.selectedActions,
+      hasParameters: parsedParameters && parsedParameters.parameters,
+      selectedActionsType: parsedParameters && typeof parsedParameters.selectedActions,
+      parametersType: parsedParameters && typeof parsedParameters.parameters,
+      keys: parsedParameters ? Object.keys(parsedParameters) : 'No keys'
     });
 
     if (!parsedParameters || !parsedParameters.selectedActions || !parsedParameters.parameters) {
+      console.error('❌ MCP Request - Validation failed:', {
+        hasParsedParameters: !!parsedParameters,
+        hasSelectedActions: !!(parsedParameters && parsedParameters.selectedActions),
+        hasParameters: !!(parsedParameters && parsedParameters.parameters),
+        actualValue: parsedParameters
+      });
       throw new Error('Invalid parsed parameters: missing selectedActions or parameters');
     }
 
     const results = [];
     const API_URL = 'http://localhost:8083/mcp-provider';
 
-    // Only process GENERATE_STATEMENT actions for MCP Supplier Agent
-    const generateStatementActions = parsedParameters.selectedActions.filter((action: string) => action === 'GENERATE_STATEMENT');
+    // Get the endpoint for this action type
+    const actionConfig = getMCPActionConfig(actionType);
     
-    if (generateStatementActions.length === 0) {
-      console.warn('⚠️ MCP Request - No GENERATE_STATEMENT actions found');
+    // Filter actions that match the current action type
+    const matchingActions = parsedParameters.selectedActions.filter((action: string) => action === actionType);
+    
+    if (matchingActions.length === 0) {
+      console.warn(`⚠️ MCP Request - No ${actionType} actions found`);
       return {
-        content: 'MCP Supplier Agent sadece GENERATE_STATEMENT işlemlerini destekler.',
+        content: `MCP Supplier Agent bu durumda ${actionType} işlemlerini bulamadı.`,
         status: 'completed',
         customer: customer,
         results: [],
@@ -161,51 +225,44 @@ export async function executeMCPRequest(params: {
       };
     }
 
-    // Execute GENERATE_STATEMENT actions
-    for (const actionType of generateStatementActions) {
-      console.log(`🎯 MCP Request - Executing action: ${actionType}`);
+    // Execute actions of the specified type
+    for (const currentActionType of matchingActions) {
+      console.log(`🎯 MCP Request - Executing action: ${currentActionType}`);
       
-      const actionParams = parsedParameters.parameters[actionType];
+      const actionParams = parsedParameters.parameters[currentActionType];
       if (!actionParams) {
-        console.warn(`⚠️ MCP Request - No parameters found for action: ${actionType}`);
+        console.warn(`⚠️ MCP Request - No parameters found for action: ${currentActionType}`);
         continue;
       }
 
-      console.log(`📤 MCP Request - Action payload for ${actionType}:`, actionParams);
+      console.log(`📤 MCP Request - Action payload for ${currentActionType}:`, actionParams);
 
       try {
-        console.log('🏦 MCP Request - Calling GENERATE_STATEMENT API');
+        // Fix endpoint to include /api prefix and use axios instead of fetch for better CORS handling
+        const fullEndpoint = `${API_URL}/api${actionConfig.endpoint}`;
+        console.log(`🏦 MCP Request - Calling ${currentActionType} API at ${fullEndpoint}`);
         
-        const response = await fetch(`${API_URL}/api/transactions/statement`, {
-          method: 'POST',
+        const response = await axios.post(fullEndpoint, actionParams, {
           headers: {
             'Content-Type': 'application/json',
-            'Accept': 'application/json',
-            'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
-            'Access-Control-Allow-Headers': 'Content-Type, Authorization'
+            'Accept': 'application/json'
           },
-          mode: 'cors',
-          body: JSON.stringify(actionParams)
+          timeout: 30000
         });
         
-        if (!response.ok) {
-          throw new Error(`GENERATE_STATEMENT API error: ${response.status} ${response.statusText}`);
-        }
-        
-        const statementData = await response.json();
-        console.log('✅ MCP Request - GENERATE_STATEMENT response:', statementData);
+        const actionData = response.data;
+        console.log(`✅ MCP Request - ${currentActionType} response:`, actionData);
         
         results.push({
-          actionType: 'GENERATE_STATEMENT',
+          actionType: currentActionType,
           status: 'success',
-          data: statementData
+          data: actionData
         });
 
       } catch (actionError) {
-        console.error(`❌ MCP Request - Error executing ${actionType}:`, actionError);
+        console.error(`❌ MCP Request - Error executing ${currentActionType}:`, actionError);
         results.push({
-          actionType: actionType,
+          actionType: currentActionType,
           status: 'error',
           error: actionError instanceof Error ? actionError.message : 'Unknown error'
         });
@@ -219,35 +276,46 @@ export async function executeMCPRequest(params: {
     const successfulResults = results.filter(r => r.status === 'success');
     
     if (successfulResults.length > 0) {
-      const statementResult = successfulResults[0];
-      if (statementResult.data && statementResult.data.transactions) {
-        const transactions = statementResult.data.transactions;
-        const customer = statementResult.data.customer;
-        
-        responseContent = `✅ Ekstre başarıyla oluşturuldu!\n\n`;
-        responseContent += `👤 Müşteri: ${customer.fullName} (${customer.email})\n`;
-        responseContent += `📊 Toplam ${transactions.length} işlem bulundu\n\n`;
-        
-        if (transactions.length > 0) {
-          responseContent += `💰 İşlem Özeti:\n`;
-          transactions.slice(0, 5).forEach((tx: any, index: number) => {
-            const date = new Date(tx.transactionDate[0], tx.transactionDate[1] - 1, tx.transactionDate[2]);
-            responseContent += `${index + 1}. ${tx.description} - ${tx.amount} ${tx.currency} (${date.toLocaleDateString('tr-TR')})\n`;
-          });
+      const actionResult = successfulResults[0];
+      const actionConfig = getMCPActionConfig(actionType);
+      
+      responseContent = `✅ ${actionConfig.label} başarıyla tamamlandı!\n\n`;
+      
+      // Generic response formatting for different action types
+      if (actionResult.data) {
+        if (actionResult.data.transactions) {
+          // Handle transaction-based responses (like GENERATE_STATEMENT)
+          const transactions = actionResult.data.transactions;
+          const customer = actionResult.data.customer;
           
-          if (transactions.length > 5) {
-            responseContent += `... ve ${transactions.length - 5} işlem daha\n`;
+          responseContent += `👤 Müşteri: ${customer.fullName} (${customer.email})\n`;
+          responseContent += `📊 Toplam ${transactions.length} işlem bulundu\n\n`;
+          
+          if (transactions.length > 0) {
+            responseContent += `💰 İşlem Özeti:\n`;
+            transactions.slice(0, 5).forEach((tx: any, index: number) => {
+              const date = new Date(tx.transactionDate[0], tx.transactionDate[1] - 1, tx.transactionDate[2]);
+              responseContent += `${index + 1}. ${tx.description} - ${tx.amount} ${tx.currency} (${date.toLocaleDateString('tr-TR')})\n`;
+            });
+            
+            if (transactions.length > 5) {
+              responseContent += `... ve ${transactions.length - 5} işlem daha\n`;
+            }
           }
-        }
-        
-        if (statementResult.data.attachmentIds && statementResult.data.attachmentIds.length > 0) {
-          responseContent += `\n📎 Ek dosya ID'leri: ${statementResult.data.attachmentIds.join(', ')}`;
+          
+          if (actionResult.data.attachmentIds && actionResult.data.attachmentIds.length > 0) {
+            responseContent += `\n📎 Ek dosya ID'leri: ${actionResult.data.attachmentIds.join(', ')}`;
+          }
+        } else {
+          // Generic response for other action types
+          responseContent += `📋 İşlem detayları:\n${JSON.stringify(actionResult.data, null, 2)}`;
         }
       } else {
-        responseContent = 'Ekstre oluşturuldu ancak işlem detayları alınamadı.';
+        responseContent = `${actionConfig.label} tamamlandı ancak detaylar alınamadı.`;
       }
     } else {
-      responseContent = 'Ekstre oluşturulurken hata oluştu.';
+      const actionConfig = getMCPActionConfig(actionType);
+      responseContent = `${actionConfig.label} işlemi sırasında hata oluştu.`;
     }
 
     return {
