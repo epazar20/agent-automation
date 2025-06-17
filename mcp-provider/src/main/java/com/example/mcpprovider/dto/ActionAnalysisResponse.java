@@ -1,6 +1,5 @@
 package com.example.mcpprovider.dto;
 
-import com.example.mcpprovider.enums.FinanceActionType;
 import com.example.mcpprovider.model.Customer;
 import lombok.Data;
 
@@ -11,7 +10,7 @@ public class ActionAnalysisResponse {
     
     private String content;
     private String originalContent;
-    private List<FinanceActionType> financeActionTypes;
+    private List<String> financeActionTypes;
     private Customer customer;
 
     // Default constructor
@@ -19,7 +18,7 @@ public class ActionAnalysisResponse {
 
     // Constructor with all fields
     public ActionAnalysisResponse(String content, String originalContent, 
-                                List<FinanceActionType> financeActionTypes, Customer customer) {
+                                List<String> financeActionTypes, Customer customer) {
         this.content = content;
         this.originalContent = originalContent;
         this.financeActionTypes = financeActionTypes;
@@ -43,11 +42,11 @@ public class ActionAnalysisResponse {
         this.originalContent = originalContent;
     }
 
-    public List<FinanceActionType> getFinanceActionTypes() {
+    public List<String> getFinanceActionTypes() {
         return financeActionTypes;
     }
 
-    public void setFinanceActionTypes(List<FinanceActionType> financeActionTypes) {
+    public void setFinanceActionTypes(List<String> financeActionTypes) {
         this.financeActionTypes = financeActionTypes;
     }
 

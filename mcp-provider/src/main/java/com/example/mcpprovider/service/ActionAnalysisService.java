@@ -6,7 +6,7 @@ import com.example.mcpprovider.dto.ActionAnalysisResponse;
 import com.example.mcpprovider.dto.AiProviderRequest;
 import com.example.mcpprovider.dto.AiProviderResponse;
 import com.example.mcpprovider.dto.CustomerDto;
-import com.example.mcpprovider.enums.FinanceActionType;
+import com.example.mcpprovider.dto.FinanceActionTypeDto;
 import com.example.mcpprovider.model.Customer;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -31,6 +31,9 @@ public class ActionAnalysisService {
 
     @Autowired
     private CustomerService customerService;
+
+    @Autowired
+    private FinanceActionTypeService financeActionTypeService;
 
     @Autowired
     private AiProviderClient aiProviderClient;
@@ -66,7 +69,7 @@ public class ActionAnalysisService {
             // Create customer JSON string
             String customerJson = objectMapper.writeValueAsString(customer);
             
-            // Get all finance action types and their descriptions
+            // Get all finance action types and their descriptions from database
             String financeActionsInfo = createFinanceActionsInfo();
             
             // Enhance content with customer context and finance actions
@@ -97,7 +100,7 @@ public class ActionAnalysisService {
 
             // Add extraContent to AI response
             String aiResponseContent = aiResponse.getContent();
-            if (aiResponseContent.contains("```json")) {
+            if (aiResponseContent != null && aiResponseContent.contains("```json")) {
                 int jsonStart = aiResponseContent.indexOf("```json") + 7;
                 int jsonEnd = aiResponseContent.indexOf("```", jsonStart);
                 if (jsonEnd != -1) {
@@ -128,15 +131,15 @@ public class ActionAnalysisService {
 
     // New class to hold both actions and modified content
     private static class ProcessedResponse {
-        private final List<FinanceActionType> actions;
+        private final List<String> actions;
         private final String modifiedContent;
         
-        public ProcessedResponse(List<FinanceActionType> actions, String modifiedContent) {
+        public ProcessedResponse(List<String> actions, String modifiedContent) {
             this.actions = actions;
             this.modifiedContent = modifiedContent;
         }
         
-        public List<FinanceActionType> getActions() { return actions; }
+        public List<String> getActions() { return actions; }
         public String getModifiedContent() { return modifiedContent; }
     }
 
@@ -167,15 +170,16 @@ public class ActionAnalysisService {
         prompt.append("  * Müşteri talebine göre uygun herhangi bir değer kullanılabilir\n");
         prompt.append("  * Eğer belirtilmemişse NULL kullanın\n\n");
 
-        // Add JSON templates for each action type
-        for (FinanceActionType actionType : FinanceActionType.values()) {
-            prompt.append(actionType.name()).append(" şablonu:\n");
-            prompt.append(actionType.getJsonMap()).append("\n");
+        // Get active finance action types from database and add JSON templates
+        List<FinanceActionTypeDto> actionTypes = financeActionTypeService.getActiveFinanceActionTypes();
+        for (FinanceActionTypeDto actionType : actionTypes) {
+            prompt.append(actionType.getTypeCode()).append(" şablonu:\n");
+            prompt.append(actionType.getJsonSchema()).append("\n");
             
-            // Parse the JSON map to extract and explain enum-like fields
+            // Parse the JSON schema to extract and explain enum-like fields
             try {
-                JsonNode jsonMapNode = objectMapper.readTree(actionType.getJsonMap());
-                jsonMapNode.fields().forEachRemaining(entry -> {
+                JsonNode jsonSchemaNode = objectMapper.readTree(actionType.getJsonSchema());
+                jsonSchemaNode.fields().forEachRemaining(entry -> {
                     String value = entry.getValue().asText();
                     if (value.contains("|")) {
                         prompt.append("- ").append(entry.getKey()).append(" için geçerli değerler: ")
@@ -184,7 +188,7 @@ public class ActionAnalysisService {
                     }
                 });
             } catch (Exception e) {
-                log.error("Error parsing JSON map for {}: {}", actionType, e.getMessage());
+                log.error("Error parsing JSON schema for {}: {}", actionType.getTypeCode(), e.getMessage());
             }
             prompt.append("\n");
         }
@@ -196,116 +200,136 @@ public class ActionAnalysisService {
         prompt.append("- Başlangıç tarihi (startDate) bitiş tarihinden 1 ay öncesi olmalıdır\n");
         prompt.append("- Tarihler ISO format kullanmalı (YYYY-MM-DDThh:mm:ss)\n\n");
 
+        // Create dynamic JSON format example using first available action types
         prompt.append("Lütfen yanıtınızı aşağıdaki JSON formatında döndürün:\n");
         prompt.append("{\n");
-        prompt.append("  \"selectedActions\": [\"ACTION_TYPE1\"],\n");
+        prompt.append("  \"selectedActions\": [");
+        
+        // Add action type codes dynamically
+        if (!actionTypes.isEmpty()) {
+            for (int i = 0; i < Math.min(actionTypes.size(), 3); i++) {
+                if (i > 0) prompt.append(", ");
+                prompt.append("\"").append(actionTypes.get(i).getTypeCode()).append("\"");
+            }
+        }
+        prompt.append("],\n");
+        
         prompt.append("  \"parameters\": {\n");
-        prompt.append("    \"ACTION_TYPE1\": {\n");
-        prompt.append("      \"actionType\": \"GENERATE_STATEMENT\",\n");
-        prompt.append("      \"customerId\": \"1\",\n");
-        prompt.append("      \"startDate\": \"").append(currentYear).append("-MM-DDT00:00:00\",\n");
-        prompt.append("      \"endDate\": \"").append(currentDate).append("T23:59:59\",\n");
-        prompt.append("      \"direction\": \"in\",  // Sadece 'in' veya 'out' kullanın, başka değer KULLANMAYIN\n");
-        prompt.append("      ... diğer parametreler ...\n");
-        prompt.append("    }\n");
-        prompt.append("  },\n");
+        
+        // Add parameter examples dynamically
+        if (!actionTypes.isEmpty()) {
+            for (int i = 0; i < Math.min(actionTypes.size(), 2); i++) {
+                FinanceActionTypeDto actionType = actionTypes.get(i);
+                if (i > 0) prompt.append(",\n");
+                
+                prompt.append("    \"").append(actionType.getTypeCode()).append("\": ");
+                prompt.append(actionType.getJsonSchema());
+            }
+        }
+        
+        prompt.append("\n  },\n");
         prompt.append("  \"dateRange\": {\n");
         prompt.append("    \"startDate\": \"").append(currentYear).append("-MM-DDT00:00:00\",\n");
         prompt.append("    \"endDate\": \"").append(currentDate).append("T23:59:59\",\n");
         prompt.append("    \"isRelative\": true,\n");
         prompt.append("    \"relativeDays\": 30\n");
         prompt.append("  }\n");
-        prompt.append("}\n");
+        prompt.append("}\n\n");
 
         return prompt.toString();
     }
 
     private String createFinanceActionsInfo() {
         StringBuilder info = new StringBuilder();
-        for (FinanceActionType actionType : FinanceActionType.values()) {
-            info.append(actionType.name()).append(": ")
-                .append(getActionDescription(actionType))
-                .append("\n");
+        
+        // Get active finance action types from database
+        List<FinanceActionTypeDto> actionTypes = financeActionTypeService.getActiveFinanceActionTypes();
+        
+        for (FinanceActionTypeDto actionType : actionTypes) {
+            String description = getActionDescription(actionType);
+            info.append(actionType.getTypeCode()).append(": ").append(description).append("\n");
         }
         return info.toString();
     }
 
-    private String getActionDescription(FinanceActionType actionType) {
-        switch (actionType) {
-            case SEND_EMAIL:
-                return "E-posta gönderme işlemi";
-            case GENERATE_STATEMENT:
-                return "Hesap ekstresi oluşturma";
-            case SEND_PAYMENT_REMINDER:
-                return "Ödeme hatırlatması gönderme";
-            case CREATE_INVOICE:
-                return "Fatura oluşturma";
-            case PROCESS_PAYMENT:
-                return "Ödeme işleme";
-            case REQUEST_LOAN_INFO:
-                return "Kredi bilgisi talep etme";
-            case UPDATE_CONTACT_INFO:
-                return "İletişim bilgilerini güncelleme";
-            case TRANSFER_FUNDS:
-                return "Para transferi";
-            case SCHEDULE_MEETING:
-                return "Toplantı planlama";
-            case BLOCK_CARD:
-                return "Kart bloke etme";
-            case UNBLOCK_CARD:
-                return "Kart blokesini kaldırma";
-            default:
-                return "Müşteri etkileşimi kaydı";
-        }
+    private String getActionDescription(FinanceActionTypeDto actionType) {
+        return actionType.getDescription() != null ? actionType.getDescription() : "Açıklama mevcut değil";
     }
 
     private ProcessedResponse processAiResponseWithModifications(String aiResponse, String originalContent) {
-        List<FinanceActionType> selectedActions = new ArrayList<>();
+        List<String> selectedActions = new ArrayList<>();
         String modifiedContent = aiResponse;
         
-        if (aiResponse == null || aiResponse.trim().isEmpty()) {
-            selectedActions.add(FinanceActionType.LOG_CUSTOMER_INTERACTION);
-            return new ProcessedResponse(selectedActions, modifiedContent);
-        }
-
         try {
-            String cleanedResponse = extractAndCleanJson(aiResponse);
-            log.info("Extracted JSON from AI response: {}", cleanedResponse);
+            // Add a default customer interaction log action first
+            FinanceActionTypeDto logAction = financeActionTypeService.getFinanceActionTypeByCode("LOG_CUSTOMER_INTERACTION")
+                .orElse(null);
+            if (logAction != null) {
+                selectedActions.add(logAction.getTypeCode());
+            }
+
+            // Extract JSON from AI response
+            String jsonResponse = extractAndCleanJson(aiResponse);
+            if (jsonResponse == null || jsonResponse.trim().isEmpty()) {
+                log.warn("No valid JSON found in AI response, using fallback extraction");
+                selectedActions.addAll(fallbackExtractActions(aiResponse));
+                return new ProcessedResponse(selectedActions, modifiedContent);
+            }
+
+            // Parse JSON response
+            JsonNode rootNode = objectMapper.readTree(jsonResponse);
+            log.info("Extracted JSON from AI response: {}", jsonResponse);
             
-            if (cleanedResponse != null) {
-                JsonNode rootNode = objectMapper.readTree(cleanedResponse);
-                JsonNode selectedActionsNode = rootNode.get("selectedActions");
-                JsonNode parametersNode = rootNode.get("parameters");
-                JsonNode dateRangeNode = rootNode.get("dateRange");
-                
-                // Get current date for validation
-                ZonedDateTime nowInTurkey = ZonedDateTime.now();
-                int currentYear = nowInTurkey.getYear();
-                
-                // Check if SEND_EMAIL is in selected actions
-                boolean hasSendEmail = false;
-                if (selectedActionsNode != null && selectedActionsNode.isArray()) {
-                    for (JsonNode actionNode : selectedActionsNode) {
-                        if ("SEND_EMAIL".equals(actionNode.asText())) {
-                            hasSendEmail = true;
-                            log.info("SEND_EMAIL action detected in selected actions");
-                            break;
+            // Get current date info for Turkey timezone
+            ZonedDateTime nowInTurkey = ZonedDateTime.now(ZoneId.of("Europe/Istanbul"));
+            int currentYear = nowInTurkey.getYear();
+            
+            // Check which actions need special handling
+            Set<String> specialHandlingActions = new HashSet<>();
+            JsonNode selectedActionsNode = rootNode.get("selectedActions");
+            if (selectedActionsNode != null && selectedActionsNode.isArray()) {
+                for (JsonNode actionNode : selectedActionsNode) {
+                    String actionTypeStr = actionNode.asText();
+                    
+                    // Get action type from database to check for special handling needs
+                    FinanceActionTypeDto actionType = financeActionTypeService.getFinanceActionTypeByCode(actionTypeStr)
+                        .orElse(null);
+                    
+                    if (actionType != null) {
+                        // Check if this action type has email-related functionality
+                        if (actionType.getTypeCode().contains("EMAIL") || 
+                            (actionType.getJsonSchema() != null && actionType.getJsonSchema().contains("emailFlag"))) {
+                            specialHandlingActions.add("HAS_EMAIL");
+                        }
+                        
+                        // Check if this action type has statement generation functionality
+                        if (actionType.getJsonSchema() != null && 
+                            (actionType.getJsonSchema().contains("startDate") || actionType.getJsonSchema().contains("endDate"))) {
+                            specialHandlingActions.add("HAS_STATEMENT");
                         }
                     }
                 }
-                
-                boolean jsonModified = false;
-                
-                if (selectedActionsNode != null && selectedActionsNode.isArray()) {
-                    for (JsonNode actionNode : selectedActionsNode) {
-                        try {
-                            String actionTypeStr = actionNode.asText();
-                            FinanceActionType actionType = FinanceActionType.valueOf(actionTypeStr);
-                            log.info("Processing action type: {}", actionTypeStr);
-                            
-                            // Get JSON map for the action type
-                            String jsonMap = actionType.getJsonMap();
-                            JsonNode jsonMapNode = objectMapper.readTree(jsonMap);
+            }
+            
+            JsonNode parametersNode = rootNode.get("parameters");
+            JsonNode dateRangeNode = rootNode.get("dateRange");
+            
+            boolean jsonModified = false;
+            
+            if (selectedActionsNode != null && selectedActionsNode.isArray()) {
+                for (JsonNode actionNode : selectedActionsNode) {
+                    try {
+                        String actionTypeStr = actionNode.asText();
+                        log.info("Processing action type: {}", actionTypeStr);
+                        
+                        // Get action type from database
+                        FinanceActionTypeDto actionType = financeActionTypeService.getFinanceActionTypeByCode(actionTypeStr)
+                            .orElse(null);
+                        
+                        if (actionType != null) {
+                            // Get JSON schema for the action type
+                            String jsonSchema = actionType.getJsonSchema();
+                            JsonNode jsonSchemaNode = objectMapper.readTree(jsonSchema);
                             
                             // Get parameters for this action
                             JsonNode actionParams = parametersNode != null ? parametersNode.get(actionTypeStr) : null;
@@ -317,18 +341,18 @@ public class ActionAnalysisService {
                                 ((ObjectNode) actionParams).remove("content");
                                 ((ObjectNode) actionParams).remove("extraContent");
                                 
-                                // Validate and process each parameter based on JSON map
+                                // Validate and process each parameter based on JSON schema
                                 actionParams.fields().forEachRemaining(entry -> {
                                     String paramName = entry.getKey();
                                     JsonNode paramValue = entry.getValue();
-                                    JsonNode jsonMapParamValue = jsonMapNode.get(paramName);
+                                    JsonNode jsonSchemaParamValue = jsonSchemaNode.get(paramName);
                                     
-                                    if (jsonMapParamValue != null && jsonMapParamValue.isTextual()) {
-                                        String jsonMapParamStr = jsonMapParamValue.asText();
+                                    if (jsonSchemaParamValue != null && jsonSchemaParamValue.isTextual()) {
+                                        String jsonSchemaParamStr = jsonSchemaParamValue.asText();
                                         
                                         // Handle enum-like values (separated by |)
-                                        if (jsonMapParamStr.contains("|")) {
-                                            String[] validValues = jsonMapParamStr.split("\\|");
+                                        if (jsonSchemaParamStr.contains("|")) {
+                                            String[] validValues = jsonSchemaParamStr.split("\\|");
                                             if (paramValue != null && paramValue.isTextual()) {
                                                 String actualValue = paramValue.asText();
                                                 boolean isValid = false;
@@ -347,66 +371,74 @@ public class ActionAnalysisService {
                                 });
                             }
                             
-                            if (actionType == FinanceActionType.GENERATE_STATEMENT) {
-                                log.info("Handling GENERATE_STATEMENT with hasSendEmail: {}", hasSendEmail);
-                                boolean wasModified = handleGenerateStatement(actionParams, nowInTurkey, currentYear, dateRangeNode, hasSendEmail, originalContent);
+                            // Dynamic special handling based on action type characteristics
+                            if (actionType.getJsonSchema() != null && 
+                                (actionType.getJsonSchema().contains("startDate") || actionType.getJsonSchema().contains("endDate"))) {
+                                log.info("Handling date-based action type {} with specialHandlingActions: {}", actionTypeStr, specialHandlingActions);
+                                boolean wasModified = handleDateBasedAction(actionParams, nowInTurkey, currentYear, dateRangeNode, 
+                                    specialHandlingActions.contains("HAS_EMAIL"), originalContent);
                                 if (wasModified) {
                                     jsonModified = true;
-                                    log.info("GENERATE_STATEMENT parameters were modified");
+                                    log.info("{} parameters were modified", actionTypeStr);
                                 }
                             }
                             
-                            selectedActions.add(actionType);
-                        } catch (IllegalArgumentException e) {
-                            log.error("Invalid action type found: {}", actionNode.asText());
+                            selectedActions.add(actionType.getTypeCode());
+                        } else {
+                            log.warn("Unknown action type: {}", actionTypeStr);
                         }
+                    } catch (Exception e) {
+                        log.error("Error processing action type {}: {}", actionNode.asText(), e.getMessage());
                     }
                 }
+            }
+            
+            // Remove extraContent from root node if it exists
+            ((ObjectNode) rootNode).remove("extraContent");
+            
+            // If JSON was modified, reconstruct the response content
+            if (jsonModified) {
+                log.info("JSON was modified, reconstructing response content");
+                String modifiedJson = objectMapper.writeValueAsString(rootNode);
+                log.info("Modified JSON: {}", modifiedJson);
                 
-                // Remove extraContent from root node if it exists
-                ((ObjectNode) rootNode).remove("extraContent");
-                
-                // If JSON was modified, reconstruct the response content
-                if (jsonModified) {
-                    log.info("JSON was modified, reconstructing response content");
-                    String modifiedJson = objectMapper.writeValueAsString(rootNode);
-                    log.info("Modified JSON: {}", modifiedJson);
-                    
-                    // Replace the JSON part in the original response
-                    if (aiResponse.contains("```json")) {
-                        int jsonStart = aiResponse.indexOf("```json") + 7;
-                        int jsonEnd = aiResponse.indexOf("```", jsonStart);
-                        if (jsonEnd != -1) {
-                            String beforeJson = aiResponse.substring(0, jsonStart);
-                            String afterJson = aiResponse.substring(jsonEnd);
-                            modifiedContent = beforeJson + "\n" + modifiedJson + "\n" + afterJson;
-                            log.info("Successfully replaced JSON in markdown format");
-                        }
-                    } else {
-                        modifiedContent = aiResponse.replace(cleanedResponse, modifiedJson);
-                        log.info("Successfully replaced JSON in plain format");
+                // Replace the JSON part in the original response
+                if (aiResponse.contains("```json")) {
+                    int jsonStart = aiResponse.indexOf("```json") + 7;
+                    int jsonEnd = aiResponse.indexOf("```", jsonStart);
+                    if (jsonEnd != -1) {
+                        String beforeJson = aiResponse.substring(0, jsonStart);
+                        String afterJson = aiResponse.substring(jsonEnd);
+                        modifiedContent = beforeJson + "\n" + modifiedJson + "\n" + afterJson;
+                        log.info("Successfully replaced JSON in markdown format");
                     }
-                    log.info("Final modified content: {}", modifiedContent);
                 } else {
-                    log.info("No JSON modifications were made");
+                    modifiedContent = aiResponse.replace(jsonResponse, modifiedJson);
+                    log.info("Successfully replaced JSON in plain format");
+                }
+                log.info("Final modified content: {}", modifiedContent);
+            } else {
+                log.info("No JSON modifications were made");
+            }
+
+            // Add default LOG_CUSTOMER_INTERACTION if no other actions found
+            if (selectedActions.size() <= 1) {
+                if (logAction != null) {
+                    selectedActions.add(logAction.getTypeCode());
                 }
             }
         } catch (Exception e) {
-            log.error("Failed to parse AI response: {}", e.getMessage());
-            selectedActions = fallbackExtractActions(aiResponse);
-        }
-        
-        if (selectedActions.isEmpty()) {
-            selectedActions.add(FinanceActionType.LOG_CUSTOMER_INTERACTION);
+            log.error("Error processing AI response: {}", e.getMessage(), e);
+            selectedActions.addAll(fallbackExtractActions(aiResponse));
         }
         
         return new ProcessedResponse(selectedActions, modifiedContent);
     }
 
-    private boolean handleGenerateStatement(JsonNode actionParams, ZonedDateTime nowInTurkey, 
-            int currentYear, JsonNode dateRangeNode, boolean hasSendEmail, String originalContent) {
+    private boolean handleDateBasedAction(JsonNode actionParams, ZonedDateTime nowInTurkey, 
+            int currentYear, JsonNode dateRangeNode, boolean hasEmailAction, String originalContent) {
         boolean modified = false;
-        log.info("handleGenerateStatement called with hasSendEmail: {}", hasSendEmail);
+        log.info("handleDateBasedAction called with hasEmailAction: {}", hasEmailAction);
         
         if (actionParams instanceof ObjectNode) {
             ObjectNode params = (ObjectNode) actionParams;
@@ -457,16 +489,24 @@ public class ActionAnalysisService {
                 .withSecond(0)
                 .withNano(0);
             
-            // Tarihleri güncelle
+            // Tarihleri güncelle (sadece ilgili alanlar varsa)
             DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss");
-            params.put("startDate", startDate.format(formatter));
-            params.put("endDate", endDate.format(formatter));
-            log.info("Updated date range - start: {}, end: {}", startDate.format(formatter), endDate.format(formatter));
+            if (params.has("startDate")) {
+                params.put("startDate", startDate.format(formatter));
+                log.info("Updated startDate: {}", startDate.format(formatter));
+                modified = true;
+            }
+            if (params.has("endDate")) {
+                params.put("endDate", endDate.format(formatter));
+                log.info("Updated endDate: {}", endDate.format(formatter));
+                modified = true;
+            }
             
-            // emailFlag'i güncelle
-            if (hasSendEmail) {
+            // emailFlag'i güncelle (sadece bu alan varsa)
+            if (hasEmailAction && params.has("emailFlag")) {
                 params.put("emailFlag", true);
-                log.info("Set emailFlag to true due to SEND_EMAIL action");
+                log.info("Set emailFlag to true due to email-related action");
+                modified = true;
             }
             
             // dateRange'i güncelle
@@ -478,8 +518,6 @@ public class ActionAnalysisService {
                 dateRange.put("relativeDays", relativeDays);
                 log.info("Updated dateRange with relativeDays: {}", relativeDays);
             }
-            
-            modified = true;
         }
         
         return modified;
@@ -487,73 +525,70 @@ public class ActionAnalysisService {
     
     private String extractAndCleanJson(String aiResponse) {
         try {
-            // Look for JSON between ```json and ``` blocks
-            int jsonStart = aiResponse.indexOf("```json");
-            if (jsonStart != -1) {
-                jsonStart += 7; // Move past "```json"
+            if (aiResponse == null) {
+                return null;
+            }
+            
+            if (aiResponse.contains("```json")) {
+                int jsonStart = aiResponse.indexOf("```json") + 7;
                 int jsonEnd = aiResponse.indexOf("```", jsonStart);
                 if (jsonEnd != -1) {
-                    String jsonContent = aiResponse.substring(jsonStart, jsonEnd);
-                    // Clean escape characters
-                    jsonContent = jsonContent
-                        .replace("\\n", "\n")
-                        .replace("\\\"", "\"")
-                        .replace("\\t", "\t")
-                        .trim();
-                    return jsonContent;
+                    return aiResponse.substring(jsonStart, jsonEnd).trim();
                 }
             }
             
-            // If no markdown blocks, try to find JSON-like structure directly
-            int braceStart = aiResponse.indexOf("{");
-            int braceEnd = aiResponse.lastIndexOf("}");
-            if (braceStart != -1 && braceEnd != -1 && braceEnd > braceStart) {
-                String jsonContent = aiResponse.substring(braceStart, braceEnd + 1);
-                // Clean escape characters
-                jsonContent = jsonContent
-                    .replace("\\n", "\n")
-                    .replace("\\\"", "\"")
-                    .replace("\\t", "\t");
-                return jsonContent;
+            // Try to find JSON object in the response
+            int start = aiResponse.indexOf("{");
+            int end = aiResponse.lastIndexOf("}");
+            if (start != -1 && end != -1 && end > start) {
+                return aiResponse.substring(start, end + 1);
             }
             
+            return null;
         } catch (Exception e) {
-            log.error("Error extracting JSON: {}", e.getMessage());
+            log.error("Error extracting JSON from response: {}", e.getMessage());
+            return null;
         }
-        
-        return null;
     }
     
-    private List<FinanceActionType> fallbackExtractActions(String aiResponse) {
-        List<FinanceActionType> actions = new ArrayList<>();
+    private List<String> fallbackExtractActions(String aiResponse) {
+        List<String> actions = new ArrayList<>();
         
         try {
-            // Look for selectedActions pattern
-            String pattern = "selectedActions.*?\\[([^\\]]+)\\]";
-            Pattern regex = Pattern.compile(pattern, Pattern.DOTALL);
-            Matcher matcher = regex.matcher(aiResponse);
+            // Handle null response
+            if (aiResponse == null) {
+                FinanceActionTypeDto logAction = financeActionTypeService.getFinanceActionTypeByCode("LOG_CUSTOMER_INTERACTION")
+                    .orElse(null);
+                if (logAction != null) {
+                    actions.add(logAction.getTypeCode());
+                }
+                return actions;
+            }
             
-            if (matcher.find()) {
-                String actionsString = matcher.group(1);
-                // Split by comma and clean up
-                String[] actionStrings = actionsString.split(",");
-                
-                for (String actionStr : actionStrings) {
-                    String cleanAction = actionStr.trim()
-                        .replace("\"", "")
-                        .replace("\\\"", "")
-                        .replace("'", "");
-                    
-                    try {
-                        FinanceActionType actionType = FinanceActionType.valueOf(cleanAction);
-                        actions.add(actionType);
-                    } catch (IllegalArgumentException e) {
-                        log.error("Invalid action type in fallback: {}", cleanAction);
-                    }
+            // Get all active action types from database
+            List<FinanceActionTypeDto> allActionTypes = financeActionTypeService.getActiveFinanceActionTypes();
+            
+            // Convert response to uppercase for matching
+            String upperResponse = aiResponse.toUpperCase();
+            
+            // Look for action type codes in the response
+            for (FinanceActionTypeDto actionType : allActionTypes) {
+                if (upperResponse.contains(actionType.getTypeCode().toUpperCase())) {
+                    actions.add(actionType.getTypeCode());
                 }
             }
+            
+            // If no actions found, add default
+            if (actions.isEmpty()) {
+                FinanceActionTypeDto logAction = financeActionTypeService.getFinanceActionTypeByCode("LOG_CUSTOMER_INTERACTION")
+                    .orElse(null);
+                if (logAction != null) {
+                    actions.add(logAction.getTypeCode());
+                }
+            }
+            
         } catch (Exception e) {
-            log.error("Fallback extraction failed: {}", e.getMessage());
+            log.error("Error in fallback action extraction: {}", e.getMessage());
         }
         
         return actions;
