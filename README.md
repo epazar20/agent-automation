@@ -1,11 +1,50 @@
 # AI Agent Automation Platform
 
-Modern AI tabanlı iş süreçlerini otomatikleştiren görsel flow editörü ve mikroservis tabanlı agent sistemi.
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Java](https://img.shields.io/badge/Java-17-orange.svg)](https://openjdk.java.net/projects/jdk/17/)
+[![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.2.5-brightgreen.svg)](https://spring.io/projects/spring-boot)
+[![Next.js](https://img.shields.io/badge/Next.js-15.3.2-black.svg)](https://nextjs.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.8.3-blue.svg)](https://www.typescriptlang.org/)
 
-![AI Agent Flow Editor](frontend/public/ai-agent-flow-screenshot.png)
+Modern AI tabanlı iş süreçlerini otomatikleştiren **görsel flow editörü** ve **mikroservis tabanlı agent sistemi**. 
+
+Drag & drop arayüzü ile karmaşık AI iş akışları oluşturun, finansal analiz yapın, otomatik raporlama ve e-posta gönderimi gerçekleştirin.
+
+![AI Agent Flow Editor](https://github.com/user-attachments/assets/a3f4d857-f685-40d0-94a2-87f4c3e553e9)
 *AI Agent Flow Editor - Görsel İş Akışı Tasarım Arayüzü*
 
-> **📸 Görsel Ekleme**: Ekteki ekran görüntüsünü `frontend/public/ai-agent-flow-screenshot.png` konumuna kaydedin veya GitHub Issues'a yükleyip URL'i güncelleyin.
+## 📋 İçindekiler
+
+- [🏗️ Sistem Mimarisi](#️-sistem-mimarisi)
+- [🚀 Özellikler](#-özellikler)
+- [🏢 Mikroservis Detayları](#-mikroservis-detayları)
+- [🔄 Flow Execution Mantığı](#-flow-execution-mantığı)
+- [📊 Örnek Senaryo](#-örnek-senaryo)
+- [🛠️ Kurulum ve Çalıştırma](#️-kurulum-ve-çalıştırma)
+- [🎨 Kullanım](#-kullanım)
+- [🔧 API Endpoints](#-api-endpoints)
+- [🧪 Test](#-test)
+- [📈 Monitoring](#-monitoring)
+
+## 🚀 Quick Start
+
+```bash
+# 1. Repository'yi klonlayın
+git clone https://github.com/[your-username]/ai-agent-automation.git
+cd ai-agent-automation
+
+# 2. Backend servisleri başlatın
+mvn clean install
+cd mcp-provider && mvn spring-boot:run &
+cd ../agent-provider && mvn spring-boot:run &
+cd ../ai-provider && mvn spring-boot:run &
+
+# 3. Frontend'i başlatın
+cd frontend
+npm install && npm run dev
+
+# 4. Tarayıcıda açın: http://localhost:3000
+```
 
 ## 🏗️ Sistem Mimarisi
 
@@ -479,38 +518,75 @@ npm run lint
 
 ## 🤝 Katkıda Bulunma
 
-1. Repository'yi fork edin
-2. Feature branch oluşturun: `git checkout -b feature/new-feature`
-3. Değişikliklerinizi commit edin: `git commit -am 'Add new feature'`
-4. Branch'i push edin: `git push origin feature/new-feature`
-5. Pull Request oluşturun
+Bu projeye katkıda bulunmak istiyorsanız:
 
-### Geliştirme Kuralları
-- Java kod standardı: Google Java Style Guide
-- TypeScript: ESLint + Prettier
-- Commit messages: Conventional Commits
-- Test coverage: Minimum %80
+1. **Repository'yi fork edin**
+2. **Feature branch oluşturun**: `git checkout -b feature/amazing-feature`
+3. **Değişikliklerinizi commit edin**: `git commit -m 'Add amazing feature'`
+4. **Branch'i push edin**: `git push origin feature/amazing-feature`
+5. **Pull Request oluşturun**
+
+### 📝 Geliştirme Kuralları
+- **Java**: Google Java Style Guide
+- **TypeScript**: ESLint + Prettier
+- **Commits**: [Conventional Commits](https://www.conventionalcommits.org/)
+- **Test Coverage**: Minimum %80
+- **Documentation**: Her yeni özellik dokümante edilmeli
+
+### 🐛 Bug Reports
+- GitHub Issues kullanın
+- Detaylı açıklama ve reproduce adımları ekleyin
+- Log dosyalarını ve hata mesajlarını paylaşın
 
 ## 📝 Lisans
 
-Bu proje MIT lisansı altında lisanslanmıştır.
+Bu proje [MIT License](LICENSE) altında lisanslanmıştır.
 
-## 🆘 Destek
+## 🆘 Destek ve İletişim
 
-- **GitHub Issues**: Bug reports ve feature requests
-- **Documentation**: Wiki sayfaları
-- **Community**: Discussions bölümü
+- **🐛 Bug Reports**: [GitHub Issues](https://github.com/[your-username]/ai-agent-automation/issues)
+- **💬 Discussions**: [GitHub Discussions](https://github.com/[your-username]/ai-agent-automation/discussions)
+- **📖 Wiki**: [Project Wiki](https://github.com/[your-username]/ai-agent-automation/wiki)
+- **📧 Email**: [your-email@example.com](mailto:your-email@example.com)
 
-## 📚 Kaynaklar
+## 📚 Kaynaklar ve Referanslar
 
+### 🔗 Teknoloji Dokümantasyonları
 - [Spring Boot Documentation](https://spring.io/projects/spring-boot)
 - [Next.js Documentation](https://nextjs.org/docs)
 - [React Flow Documentation](https://reactflow.dev/)
 - [PostgreSQL Documentation](https://www.postgresql.org/docs/)
+- [Redux Toolkit Documentation](https://redux-toolkit.js.org/)
+
+### 🎓 Öğrenme Kaynakları
+- [Mikroservis Mimarisi](https://microservices.io/)
+- [Spring Cloud](https://spring.io/projects/spring-cloud)
+- [React Flow Examples](https://reactflow.dev/examples)
+
+## 🏆 Teşekkürler
+
+Bu projeyi mümkün kılan açık kaynak topluluğuna ve aşağıdaki projelere teşekkürler:
+
+- [Spring Boot](https://spring.io/projects/spring-boot) - Backend framework
+- [Next.js](https://nextjs.org/) - Frontend framework
+- [React Flow](https://reactflow.dev/) - Flow editor
+- [Tailwind CSS](https://tailwindcss.com/) - Styling
+- [PostgreSQL](https://www.postgresql.org/) - Database
 
 ---
+
+<div align="center">
+
+**🚀 AI Agent Automation Platform**
+
+[![GitHub Stars](https://img.shields.io/github/stars/[your-username]/ai-agent-automation?style=social)](https://github.com/[your-username]/ai-agent-automation/stargazers)
+[![GitHub Forks](https://img.shields.io/github/forks/[your-username]/ai-agent-automation?style=social)](https://github.com/[your-username]/ai-agent-automation/network/members)
 
 **Geliştirici**: AI Agent Automation Team  
 **Versiyon**: 1.0.0  
 **Son Güncelleme**: 2024  
-**Lisans**: MIT 
+**Lisans**: MIT
+
+[⭐ Star](https://github.com/[your-username]/ai-agent-automation) • [🐛 Report Bug](https://github.com/[your-username]/ai-agent-automation/issues) • [💡 Request Feature](https://github.com/[your-username]/ai-agent-automation/issues)
+
+</div> 
