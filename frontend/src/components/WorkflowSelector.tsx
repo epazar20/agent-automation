@@ -78,14 +78,48 @@ const WorkflowSelector: React.FC<WorkflowSelectorProps> = ({ isOpen, onClose }) 
         const nodes = JSON.parse(result.nodesData);
         const edges = JSON.parse(result.edgesData);
         
-        // Update the flow state
-        dispatch(setNodes(nodes));
+        console.log('🔄 WorkflowSelector - Loading workflow:', {
+          workflowId,
+          workflowName: result.name,
+          nodeCount: nodes.length,
+          edgeCount: edges.length
+        });
+        
+        // Process MCP Supplier Agent nodes to ensure they have proper action types
+        const processedNodes = nodes.map((node: any) => {
+          if (node.data?.type === 'mcpSupplierAgent') {
+            console.log('🔍 Processing MCP Supplier Agent node:', {
+              nodeId: node.id,
+              config: node.data.config,
+              actionType: node.data.config?.actionType
+            });
+            
+            // If no action type is set, set a default one
+            if (!node.data.config?.actionType) {
+              console.warn('🚨 MCP node missing actionType, setting default:', node.id);
+              node.data.config = {
+                ...node.data.config,
+                actionType: '', // Will be set dynamically when action types are loaded
+              };
+            }
+            
+            console.log('✅ MCP node processed:', {
+              nodeId: node.id,
+              actionType: node.data.config.actionType
+            });
+          }
+          return node;
+        });
+        
+        // Update the flow state with processed nodes
+        dispatch(setNodes(processedNodes));
         dispatch(setEdges(edges));
         dispatch(clearExecutionResults());
         
         // Increment execution count
         dispatch(incrementWorkflowExecutionCountThunk(workflowId) as any);
         
+        console.log('✅ WorkflowSelector - Workflow loaded successfully');
         toast.success(`Workflow "${result.name}" yüklendi`);
         onClose();
       }
@@ -97,7 +131,7 @@ const WorkflowSelector: React.FC<WorkflowSelectorProps> = ({ isOpen, onClose }) 
 
   // Handle workflow deletion
   const handleWorkflowDelete = useCallback(async (workflowId: number, workflowName: string) => {
-    if (!confirm(`"${workflowName}" workflow'unu silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.`)) {
+    if (!confirm(`"${workflowName}" workflow&apos;unu silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.`)) {
       return;
     }
 
@@ -116,14 +150,67 @@ const WorkflowSelector: React.FC<WorkflowSelectorProps> = ({ isOpen, onClose }) 
   // Get workflows to display (search results or all workflows)
   const workflowsToShow = searchQuery.trim() ? searchResults : workflows;
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('tr-TR', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
+  const formatDate = (dateString: string | number[] | undefined | null) => {
+    if (!dateString) {
+      return 'Tarih yok';
+    }
+
+    // Add debug logging to understand the date format
+    if (process.env.NODE_ENV === 'development') {
+      console.log('📅 Date formatting input:', dateString, 'Type:', typeof dateString, 'Is Array:', Array.isArray(dateString));
+    }
+
+    try {
+      // Handle different date formats
+      let date: Date;
+      
+      // If it's an array (Spring Boot format: [year, month, day, hour, minute, second])
+      if (Array.isArray(dateString)) {
+        const [year, month, day, hour = 0, minute = 0, second = 0] = dateString;
+        // Note: month is 1-based in the array but 0-based in Date constructor
+        date = new Date(year, month - 1, day, hour, minute, second);
+        console.log('📅 Array date created:', date);
+      }
+      // If it's a string that looks like a valid date
+      else if (typeof dateString === 'string') {
+        // Handle ISO date strings or timestamps
+        if (dateString.includes('T') || dateString.includes('-')) {
+          date = new Date(dateString);
+        } else {
+          // Try parsing as timestamp
+          const timestamp = parseInt(dateString);
+          if (!isNaN(timestamp)) {
+            date = new Date(timestamp);
+          } else {
+            date = new Date(dateString);
+          }
+        }
+        console.log('📅 String date created:', date);
+      } else {
+        date = new Date(dateString);
+        console.log('📅 Default date created:', date);
+      }
+
+      // Check if date is valid
+      if (isNaN(date.getTime())) {
+        console.warn('Invalid date format:', dateString);
+        return 'Geçersiz tarih';
+      }
+
+      const formatted = date.toLocaleDateString('tr-TR', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+      
+      console.log('📅 Formatted date:', formatted);
+      return formatted;
+    } catch (error) {
+      console.error('Date formatting error:', error, 'for date:', dateString);
+      return 'Tarih hatası';
+    }
   };
 
   const formatTags = (tags: string) => {
@@ -161,7 +248,7 @@ const WorkflowSelector: React.FC<WorkflowSelectorProps> = ({ isOpen, onClose }) 
             <div className="flex items-center justify-center h-full">
               <div className="flex flex-col items-center gap-2">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                <p className="text-muted-foreground">Workflow'lar yükleniyor...</p>
+                <p className="text-muted-foreground">Workflow&apos;lar yükleniyor...</p>
               </div>
             </div>
           ) : error ? (

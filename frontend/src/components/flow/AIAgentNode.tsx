@@ -45,7 +45,7 @@ import {
 } from '@/store/types';
 import { toast } from 'sonner';
 import { defaultAgentConfigs, createDefaultAgentConfig } from '@/store/defaultConfigs';
-import { getMCPActionConfig, parseContentForAction, parseMCPContent } from '@/store/mcpConstants';
+import { getMCPActionConfig, parseContentForAction, parseMCPContent, dynamicActionConfigs } from '@/store/mcpConstants';
 import ModelConfigForm from './ModelConfigForm';
 import { RootState } from '@/store';
 import CustomerSearch from '@/components/ui/customer-search';
@@ -134,12 +134,78 @@ export default function AIAgentNode({ id, data }: AIAgentNodeProps) {
   const updateMCPSupplierAgentConfig = useCallback((updates: Partial<MCPSupplierAgentConfig>) => {
     setConfig(prevConfig => {
       const currentConfig = prevConfig as unknown as MCPSupplierAgentConfig;
-      return {
+      const updatedConfig = {
         ...currentConfig,
         ...updates,
       };
+      
+      return updatedConfig;
     });
   }, []);
+
+  // Persist MCP config changes to Redux store (separate useEffect to avoid render-time dispatch)
+  useEffect(() => {
+    if (data.type === 'mcpSupplierAgent') {
+      const mcpConfig = config as MCPSupplierAgentConfig;
+      
+      // Only dispatch if there are meaningful changes and not during initial render
+      if (mcpConfig.actionType || mcpConfig.selectedCustomer || mcpConfig.content || mcpConfig.parsedParameters) {
+        // Use timeout to batch updates and avoid render cycle conflicts
+        const timeoutId = setTimeout(() => {
+          dispatch(updateNode({
+            id,
+            updates: {
+              data: {
+                type: data.type,
+                config: mcpConfig,
+                nodeType: data.nodeType,
+              },
+            },
+          }));
+        }, 0); // Defer to next tick
+
+        return () => clearTimeout(timeoutId);
+      }
+    }
+  }, [
+    (config as MCPSupplierAgentConfig).actionType,
+    (config as MCPSupplierAgentConfig).selectedCustomer?.id, // Use id to avoid object reference changes
+    dispatch,
+    id,
+    data.type,
+    data.nodeType
+  ]);
+
+  // Ensure action type is set for loaded MCP Supplier Agent nodes
+  useEffect(() => {
+    if (data.type === 'mcpSupplierAgent') {
+      const mcpConfig = config as MCPSupplierAgentConfig;
+      
+      if (!mcpConfig.actionType) {
+        // Try to extract action type from node title or config if available
+        // This is a fallback for corrupted workflows
+        if (dynamicActionConfigs.length > 0) {
+          const firstActionType = dynamicActionConfigs[0].typeCode;
+          console.log('🔧 Setting default actionType for MCP node:', firstActionType);
+          updateMCPSupplierAgentConfig({ actionType: firstActionType });
+        }
+      } else {
+        console.log('✅ MCP Supplier Agent loaded with actionType:', mcpConfig.actionType);
+      }
+    }
+  }, [data.type, config, dynamicActionConfigs]);
+
+  // Force re-render when MCP config changes to update node title
+  useEffect(() => {
+    if (data.type === 'mcpSupplierAgent') {
+      const mcpConfig = config as MCPSupplierAgentConfig;
+      
+      // Log when action type changes for debugging
+      if (mcpConfig.actionType) {
+        console.log('🏷️ MCP Node title update - actionType:', mcpConfig.actionType, 'nodeId:', id);
+      }
+    }
+  }, [(config as MCPSupplierAgentConfig).actionType, data.type, id]);
 
   // Find previous node's output content if available
   useEffect(() => {
@@ -164,7 +230,7 @@ export default function AIAgentNode({ id, data }: AIAgentNodeProps) {
               return; // Don't set content again below
             }
             
-            const parsedParams = parseContentForAction(contentToSet, mcpConfig.actionType);
+            const parsedParams = parseContentForAction(contentToSet);
             
             if (parsedParams) {
               // Add customerId if not present
@@ -224,7 +290,7 @@ export default function AIAgentNode({ id, data }: AIAgentNodeProps) {
       });
       
       if (mcpConfig.content) {
-        const parsedParams = parseContentForAction(mcpConfig.content, mcpConfig.actionType);
+        const parsedParams = parseContentForAction(mcpConfig.content);
         console.log('🎯 MCP Manual Parsing Result:', parsedParams);
         
         if (parsedParams) {
@@ -385,12 +451,18 @@ export default function AIAgentNode({ id, data }: AIAgentNodeProps) {
     if (data.type === 'mcpSupplierAgent') {
       const mcpConfig = config as MCPSupplierAgentConfig;
       if (mcpConfig.actionType) {
-        const actionConfig = getMCPActionConfig(mcpConfig.actionType);
-        return `${actionConfig.label} AGENT`;
+        try {
+          const actionConfig = getMCPActionConfig(mcpConfig.actionType);
+          if (actionConfig && actionConfig.typeName) {
+            return `${actionConfig.typeName}`;
+          }
+        } catch (error) {
+          console.warn('Error getting MCP action config for node name:', error);
+        }
       }
       return 'MCP Supplier Agent';
     }
-    return defaultAgentConfigs[data.type].name;
+    return defaultAgentConfigs[data.type]?.name || 'Unknown Agent';
   };
 
   // Get dynamic node description based on action type for mcpSupplierAgent
@@ -398,12 +470,18 @@ export default function AIAgentNode({ id, data }: AIAgentNodeProps) {
     if (data.type === 'mcpSupplierAgent') {
       const mcpConfig = config as MCPSupplierAgentConfig;
       if (mcpConfig.actionType) {
-        const actionConfig = getMCPActionConfig(mcpConfig.actionType);
-        return actionConfig.description || `${actionConfig.label} işlemlerini gerçekleştirir`;
+        try {
+          const actionConfig = getMCPActionConfig(mcpConfig.actionType);
+          if (actionConfig) {
+            return actionConfig.description || `${actionConfig.typeName} işlemlerini gerçekleştirir`;
+          }
+        } catch (error) {
+          console.warn('Error getting MCP action config for node description:', error);
+        }
       }
       return 'MCP protokolü ile tedarikçi entegrasyonu';
     }
-    return defaultAgentConfigs[data.type].description;
+    return defaultAgentConfigs[data.type]?.description || 'Agent açıklaması bulunamadı';
   };
 
   const handleSave = () => {
@@ -445,6 +523,23 @@ export default function AIAgentNode({ id, data }: AIAgentNodeProps) {
     }
 
     return formatted;
+  };
+
+  const handleActionTypeChange = (selectedType: string) => {
+    if (dynamicActionConfigs.length === 0) {
+      console.warn('⚠️ No action types available');
+      return;
+    }
+
+    const actionConfig = dynamicActionConfigs.find(config => config.typeCode === selectedType);
+    if (!actionConfig) {
+      console.warn(`⚠️ Action type not found: ${selectedType}`);
+      return;
+    }
+
+    updateMCPSupplierAgentConfig({
+      actionType: selectedType
+    });
   };
 
   return (
@@ -601,7 +696,7 @@ export default function AIAgentNode({ id, data }: AIAgentNodeProps) {
               <>
                 <div className="space-y-2">
                   <ActionTypeSelector
-                    onActionTypeSelect={(actionType) => updateMCPSupplierAgentConfig({ actionType })}
+                    onActionTypeSelect={handleActionTypeChange}
                     selectedActionType={(config as MCPSupplierAgentConfig).actionType}
                   />
                 </div>

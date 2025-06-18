@@ -5,7 +5,8 @@ import {
   createFinanceActionType, 
   updateFinanceActionType, 
   deleteFinanceActionType,
-  CreateFinanceActionTypeRequest 
+  CreateFinanceActionTypeRequest,
+  UpdateFinanceActionTypeRequest
 } from '../../api/financeActionTypes';
 
 // Async thunk to fetch finance action types
@@ -37,9 +38,10 @@ export const createFinanceActionTypeThunk = createAsyncThunk(
 // Async thunk to update finance action type
 export const updateFinanceActionTypeThunk = createAsyncThunk(
   'actionTypes/updateFinanceActionType',
-  async ({ id, data }: { id: number; data: CreateFinanceActionTypeRequest }, { rejectWithValue }) => {
+  async ({ id, data }: { id: number; data: Omit<UpdateFinanceActionTypeRequest, 'id'> }, { rejectWithValue }) => {
     try {
-      const result = await updateFinanceActionType(id, data);
+      const updateData: UpdateFinanceActionTypeRequest = { ...data, id };
+      const result = await updateFinanceActionType(id, updateData);
       return result;
     } catch (error) {
       return rejectWithValue(error instanceof Error ? error.message : 'Unknown error');

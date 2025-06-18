@@ -314,6 +314,18 @@ function Flow({ onSaveWorkflow, onLoadWorkflow }: FlowEditorProps) {
         if (node.data.type === 'mcpSupplierAgent' && (node.data.config as any).actionType === 'SEND_EMAIL') {
           console.log('📧 SEND_EMAIL node detected - verifying all prerequisite MCP nodes are completed');
           
+          // **DEBUG**: Check current Redux store state before SEND_EMAIL execution
+          const currentStoreState = (window as any).__REDUX_STORE__?.getState();
+          const currentAccumulatedResponses = currentStoreState?.customer?.accumulatedResponses;
+          console.log('🔍 SEND_EMAIL - Current Redux accumulated responses:', JSON.stringify(currentAccumulatedResponses, null, 2));
+          
+          if (currentAccumulatedResponses?.responses) {
+            console.log(`🔍 SEND_EMAIL - Found ${currentAccumulatedResponses.responses.length} accumulated responses:`);
+            currentAccumulatedResponses.responses.forEach((resp: any, index: number) => {
+              console.log(`  ${index + 1}. ${resp.nodeType}/${resp.actionType} (${resp.nodeId})`);
+            });
+          }
+          
           // Find all MCP nodes that should have completed before this SEND_EMAIL
           const allMcpNodes = executionOrder.filter(n => 
             n.data.type === 'mcpSupplierAgent' && 
@@ -525,6 +537,11 @@ function Flow({ onSaveWorkflow, onLoadWorkflow }: FlowEditorProps) {
             customer: configToSend.selectedCustomer || currentActiveCustomer
           }));
           console.log(`💾 FlowEditor - Saved ${node.data.type} response to accumulated responses`);
+          
+          // **FIX**: Add small delay to ensure Redux store is updated before next node execution
+          // This prevents race condition where SEND_EMAIL starts before GENERATE_STATEMENT response is available
+          await new Promise(resolve => setTimeout(resolve, 100));
+          console.log(`⏳ FlowEditor - Waited for Redux store update after ${node.data.type} execution`);
 
           // Handle special processing for aiActionAnalysis
           if (node.data.type === 'aiActionAnalysis' && result) {

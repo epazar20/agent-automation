@@ -115,6 +115,16 @@ public class TransactionService {
             log.info("Returning statement with {} transactions and {} attachments", 
                 transactionDtos.size(), attachmentIds.size());
             
+            // **DEBUG**: Log the complete response structure to help debug frontend issues
+            log.info("=== COMPLETE STATEMENT RESPONSE DEBUG ===");
+            log.info("Response type: {}", response.getClass().getSimpleName());
+            log.info("Customer: {}", response.getCustomer());
+            log.info("Transactions count: {}", response.getTransactions() != null ? response.getTransactions().size() : "null");
+            log.info("AttachmentIds: {}", response.getAttachmentIds());
+            log.info("AttachmentIds size: {}", response.getAttachmentIds() != null ? response.getAttachmentIds().size() : "null");
+            log.info("AttachmentIds values: {}", response.getAttachmentIds());
+            log.info("=== END STATEMENT RESPONSE DEBUG ===");
+            
             return response;
 
         } catch (Exception e) {

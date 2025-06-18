@@ -95,7 +95,7 @@ export default function ModelConfigForm({ modelConfig, onChange, agentType }: Mo
       return 'Sen bir veri analizcisin. Verileri detaylı analiz edip istenen bilgileri sağlamalısın';
     }
     if (isAIActionAnalysis) {
-      return 'Sen bir finansal işlem analizcisin. Verileri prompt\'u analiz edip alınacak aksiyonları tespit etmelisin';
+      return 'Sen bir finansal işlem analizcisin. Verileri prompt&apos;u analiz edip alınacak aksiyonları tespit etmelisin';
     }
     return 'Sen bir transkript özetleyicisin. Verilen metni özetleyeceksin';
   };

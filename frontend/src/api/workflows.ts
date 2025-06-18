@@ -90,8 +90,25 @@ export const workflowApi = {
 
   // Update workflow
   update: async (id: number, workflow: Partial<WorkflowCreateDto>): Promise<WorkflowDto> => {
-    const response = await axiosInstance.put(`${apiEndpoints.mcp.workflows}/${id}`, workflow);
-    return response.data;
+    console.log('🔄 Workflow Update - Request:', {
+      id,
+      workflow,
+      endpoint: `${apiEndpoints.mcp.workflows}/${id}`
+    });
+    
+    try {
+      const response = await axiosInstance.put(`${apiEndpoints.mcp.workflows}/${id}`, workflow);
+      console.log('✅ Workflow Update - Success:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('❌ Workflow Update - Error:', {
+        error: (error as any).response?.data || (error as any).message,
+        status: (error as any).response?.status,
+        statusText: (error as any).response?.statusText,
+        requestData: workflow,
+      });
+      throw error;
+    }
   },
 
   // Delete workflow
