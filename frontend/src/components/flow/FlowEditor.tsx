@@ -23,9 +23,10 @@ import AIAgentNode from './AIAgentNode';
 import ResultNode from './ResultNode';
 import ConditionalNode from './ConditionalNode';
 import { Button } from "@/components/ui/button";
-import { PlayIcon, GearIcon, PlusIcon } from "@radix-ui/react-icons";
+import { PlayIcon } from "@radix-ui/react-icons";
 import { toast } from 'sonner';
 import 'reactflow/dist/style.css';
+import { Save, FolderOpen } from "lucide-react";
 
 const nodeTypes = {
   aiAgent: AIAgentNode,
@@ -133,7 +134,12 @@ const evaluateConditionalNode = (config: any, data: any) => {
   }
 };
 
-function Flow() {
+interface FlowEditorProps {
+  onSaveWorkflow?: () => void;
+  onLoadWorkflow?: () => void;
+}
+
+function Flow({ onSaveWorkflow, onLoadWorkflow }: FlowEditorProps) {
   const dispatch = useDispatch();
   const { nodes, edges, executionResults } = useSelector((state: RootState) => state.flow);
   const { screenToFlowPosition } = useReactFlow();
@@ -738,16 +744,28 @@ function Flow() {
         </div>
         <div className="text-sm font-medium">AI Agent Akışı</div>
         <div className="flex items-center space-x-2">
-          <Button 
-            size="sm" 
-            className="bg-green-600 hover:bg-green-700 text-white"
-            onClick={() => {
-              console.log('Yeni Agent Ekle butonuna tıklandı');
-            }}
-          >
-            <PlusIcon className="mr-2 h-4 w-4" />
-            Yeni Agent Ekle
-          </Button>
+          {onSaveWorkflow && (
+            <Button 
+              size="sm" 
+              variant="outline"
+              onClick={onSaveWorkflow}
+              className="border-green-200 text-green-700 hover:bg-green-50 hover:border-green-300 hover:text-green-800"
+            >
+              <Save className="mr-2 h-4 w-4" />
+              Workflow Kaydet
+            </Button>
+          )}
+          {onLoadWorkflow && (
+            <Button 
+              size="sm" 
+              variant="outline"
+              onClick={onLoadWorkflow}
+              className="border-blue-200 text-blue-700 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-800"
+            >
+              <FolderOpen className="mr-2 h-4 w-4" />
+              Workflow Yükle
+            </Button>
+          )}
         </div>
       </div>
 
@@ -806,10 +824,10 @@ function Flow() {
   );
 }
 
-export default function FlowEditor() {
+export default function FlowEditor({ onSaveWorkflow, onLoadWorkflow }: FlowEditorProps) {
   return (
     <ReactFlowProvider>
-      <Flow />
+      <Flow onSaveWorkflow={onSaveWorkflow} onLoadWorkflow={onLoadWorkflow} />
     </ReactFlowProvider>
   );
 }

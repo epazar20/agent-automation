@@ -436,6 +436,60 @@ export interface EmailAttachment {
   base64Content: string;
 }
 
+// Workflow Types
+export interface WorkflowDto {
+  id: number;
+  name: string;
+  description?: string;
+  nodesData: string;
+  edgesData: string;
+  version: number;
+  isActive: boolean;
+  tags?: string;
+  category?: string;
+  createdBy?: string;
+  lastModifiedBy?: string;
+  executionCount: number;
+  lastExecutedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface WorkflowSummaryDto {
+  id: number;
+  name: string;
+  description?: string;
+  version: number;
+  isActive: boolean;
+  tags?: string;
+  category?: string;
+  createdBy?: string;
+  executionCount: number;
+  lastExecutedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface WorkflowCreateDto {
+  name: string;
+  description?: string;
+  nodesData: string;
+  edgesData: string;
+  tags?: string;
+  category?: string;
+  createdBy?: string;
+}
+
+export interface WorkflowState {
+  workflows: WorkflowSummaryDto[];
+  currentWorkflow: WorkflowDto | null;
+  isLoading: boolean;
+  error: string | null;
+  searchResults: WorkflowSummaryDto[];
+  isSearching: boolean;
+  lastFetched: number | null;
+}
+
 // Ana State
 export interface RootState {
   flow: FlowState;
@@ -443,4 +497,5 @@ export interface RootState {
   settings: Settings;
   customer: CustomerState;
   actionTypes: ActionTypesState;
+  workflow: WorkflowState;
 } 

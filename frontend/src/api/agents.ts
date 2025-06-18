@@ -2,14 +2,57 @@ import axios from 'axios';
 import { WebSearcherConfig, YoutubeSummarizerConfig, ResearchAgentConfig, WebScraperConfig, TranslatorConfig, AIActionAnalysisConfig, MCPSupplierAgentConfig, StatementResponse } from '@/store/types';
 import { executeActionAnalysis } from './customer';
 import { getMCPActionConfig, parseContentForAction, parseMCPContent, extractCustomerIdFromParameters, executeMCPRequest } from '@/store/mcpConstants';
+import { apiEndpoints, config } from '@/config/env';
 
-const API_URL = 'http://localhost:8083/mcp-provider';
-const AXIOS_TIMEOUT = 30000;
+// Configure axios with timeout and interceptors
+const axiosInstance = axios.create({
+  timeout: config.api.timeout,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
+// Add request interceptor for debugging in development
+if (config.debug) {
+  axiosInstance.interceptors.request.use(
+    (config) => {
+      console.log('🚀 API Request:', {
+        method: config.method?.toUpperCase(),
+        url: config.url,
+        data: config.data,
+      });
+      return config;
+    },
+    (error) => {
+      console.error('❌ API Request Error:', error);
+      return Promise.reject(error);
+    }
+  );
+
+  axiosInstance.interceptors.response.use(
+    (response) => {
+      console.log('✅ API Response:', {
+        status: response.status,
+        url: response.config.url,
+        data: response.data,
+      });
+      return response;
+    },
+    (error) => {
+      console.error('❌ API Response Error:', {
+        status: error.response?.status,
+        url: error.config?.url,
+        message: error.message,
+      });
+      return Promise.reject(error);
+    }
+  );
+}
 
 export async function executeWebScraper(config: WebScraperConfig) {
   try {
     const modelConfig = config.modelConfig;
-    const response = await axios.post(`${API_URL}/agents/web-scraper`, {
+    const response = await axiosInstance.post(apiEndpoints.agent.webScraper, {
       url: config.content || '',
       rules: config.rules,
       model: modelConfig ? `${modelConfig.type}/${modelConfig.model}` : 'huggingface/deepseek/deepseek-v3-0324',
@@ -27,121 +70,152 @@ export async function executeWebScraper(config: WebScraperConfig) {
 export async function executeWebSearcher(config: WebSearcherConfig) {
   try {
     const modelConfig = config.modelConfig;
-    const response = await axios.post(
-      `${API_URL}/agent/web-searcher`,
-      {
-        content: (config as any).content,
-        specialPrompt: (config as any).specialPrompt,
-        model: modelConfig ? `${modelConfig.type}/${modelConfig.model}` : 'huggingface/deepseek/deepseek-v3-0324',
-        maxLink: config.maxResults,
-        language: config.filters.language,
-        maxTokens: modelConfig?.maxTokens || 1000,
-        temperature: modelConfig?.temperature || 0.7
-      },
-      { timeout: AXIOS_TIMEOUT }
-    );
+    
+    const response = await axiosInstance.post(apiEndpoints.agent.webSearcher, {
+      query: config.content || '',
+      model: modelConfig ? `${modelConfig.type}/${modelConfig.model}` : 'huggingface/deepseek/deepseek-v3-0324',
+      maxTokens: modelConfig?.maxTokens || 1000,
+      temperature: modelConfig?.temperature || 0.7
+    });
 
     return response.data;
   } catch (error) {
-    console.error('Web Searcher API Error:', error);
+    console.error('Web searcher error:', error);
     throw error;
   }
 }
 
 export async function executeCodeInterpreter(config: any) {
   try {
-    const response = await axios.post(
-      `${API_URL}/agent/code-interpreter`,
-      {
-        content: config.content,
-        language: config.runtime?.python ? 'python' : 'javascript',
-        libraries: config.libraries || [],
-        memoryLimit: config.memoryLimit || 1024,
-        timeout: config.timeoutSeconds || 30
-      },
-      { timeout: AXIOS_TIMEOUT }
-    );
+    // Code interpreter functionality
+    const response = await axiosInstance.post(`${apiEndpoints.agent.base}/code-interpreter`, {
+      code: config.content || '',
+      language: config.language || 'python',
+      timeout: config.timeout || 30
+    });
 
     return response.data;
   } catch (error) {
-    console.error('Code Interpreter API Error:', error);
+    console.error('Code interpreter error:', error);
     throw error;
   }
 }
 
 export async function executeDataAnalyst(config: any) {
   try {
-    const response = await axios.post(
-      `${API_URL}/agent/data-analyst`,
-      {
-        content: config.content,
-        xAxis: config.xAxis,
-        yAxis: config.yAxis,
-        file: config.file
-      },
-      { timeout: AXIOS_TIMEOUT }
-    );
+    console.log('🔍 Data Analyst - Starting execution with config:', config);
+    
+    // Check if we have a file to upload
+    if (!config.file) {
+      console.error('❌ Data Analyst - No file provided:', config);
+      throw new Error('Veri analizi için bir dosya yüklenmesi gerekiyor');
+    }
 
-    return response.data;
+    console.log('📁 Data Analyst - File details:', {
+      name: config.file.name,
+      size: config.file.size,
+      type: config.file.type
+    });
+
+    // Create FormData for multipart/form-data request
+    const formData = new FormData();
+    
+    // Add the file
+    formData.append('file', config.file);
+    
+    // Create the request object matching the API expectation
+    const requestData = {
+      content: config.content || '',
+      model: config.modelConfig ? `${config.modelConfig.type}/${config.modelConfig.model}` : 'huggingface/deepseek/deepseek-v3-0324',
+      specialPrompt: config.specialPrompt || 'Sen bir veri analizcisin. Alınan JSON verinin prompt\'a uygun analiz etmelisin',
+      temperature: config.modelConfig?.temperature || 0.7,
+      maxTokens: config.modelConfig?.maxTokens || 1000,
+      xAxis: config.xAxis || '',
+      yAxis: config.yAxis || ''
+    };
+    
+    console.log('📊 Data Analyst - Request data:', requestData);
+    
+    // Add the request as JSON string
+    formData.append('request', JSON.stringify(requestData));
+
+    console.log('🚀 Data Analyst - Making request to:', apiEndpoints.agent.dataAnalyser);
+
+    // Make the request with multipart/form-data
+    const response = await fetch(apiEndpoints.agent.dataAnalyser, {
+      method: 'POST',
+      body: formData,
+      headers: {
+        // Don't set Content-Type header - let the browser set it with boundary
+      },
+    });
+
+    console.log('📡 Data Analyst - Response status:', response.status);
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('❌ Data Analyst - API error:', {
+        status: response.status,
+        statusText: response.statusText,
+        errorText
+      });
+      throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
+    }
+
+    const result = await response.json();
+    console.log('✅ Data Analyst - Success:', result);
+    return result;
   } catch (error) {
-    console.error('Data Analyst API Error:', error);
+    console.error('❌ Data Analyst - Fatal error:', error);
     throw error;
   }
 }
 
 export async function executeImageGenerator(config: any) {
   try {
-    const response = await axios.post(
-      `${API_URL}/agent/image-generator`,
-      {
-        prompt: config.content,
-        provider: config.provider || 'dalle',
-        resolution: config.resolution || '1024x1024',
-        style: config.style || 'natural'
-      },
-      { timeout: AXIOS_TIMEOUT }
-    );
+    const response = await axiosInstance.post(apiEndpoints.agent.imageGenerator, {
+      prompt: config.content || '',
+      style: config.style || 'realistic',
+      size: config.size || '1024x1024',
+      quality: config.quality || 'standard'
+    });
 
     return response.data;
   } catch (error) {
-    console.error('Image Generator API Error:', error);
+    console.error('Image generator error:', error);
     throw error;
   }
 }
 
 export async function executeTextGenerator(config: any) {
   try {
-    const response = await axios.post(
-      `${API_URL}/agent/text-generator`,
-      {
-        content: config.content,
-        maxLength: config.maxLength || 2000,
-        format: config.format || 'markdown'
-      },
-      { timeout: AXIOS_TIMEOUT }
-    );
+    const modelConfig = config.modelConfig;
+    
+    const response = await axiosInstance.post(`${apiEndpoints.ai.generate}`, {
+      prompt: config.content || '',
+      model: modelConfig ? `${modelConfig.type}/${modelConfig.model}` : 'huggingface/deepseek/deepseek-v3-0324',
+      maxTokens: modelConfig?.maxTokens || 1000,
+      temperature: modelConfig?.temperature || 0.7
+    });
 
     return response.data;
   } catch (error) {
-    console.error('Text Generator API Error:', error);
+    console.error('Text generator error:', error);
     throw error;
   }
 }
 
 export async function executeTranslator(config: TranslatorConfig) {
   try {
-    const response = await axios.post(
-      `${API_URL}/agent/translator`,
-      {
-        content: config.content,
-        targetLang: config.targetLang
-      },
-      { timeout: AXIOS_TIMEOUT }
-    );
+    const response = await axiosInstance.post(apiEndpoints.agent.translator, {
+      text: config.content || '',
+      targetLanguage: config.targetLanguage,
+      sourceLanguage: config.sourceLanguage || 'auto'
+    });
 
     return response.data;
   } catch (error) {
-    console.error('Translator API Error:', error);
+    console.error('Translator error:', error);
     throw error;
   }
 }
@@ -149,80 +223,52 @@ export async function executeTranslator(config: TranslatorConfig) {
 export async function executeResearchAgent(config: ResearchAgentConfig) {
   try {
     const modelConfig = config.modelConfig;
-    const response = await axios.post(
-      `${API_URL}/agent/research-agent`,
-      {
-        topic: config.topic,
-        model: modelConfig ? `${modelConfig.type}/${modelConfig.model}` : 'huggingface/deepseek/deepseek-v3-0324',
-        numLinks: config.numLinks,
-        specialPrompt: modelConfig?.systemPrompt || '',
-        temperature: modelConfig?.temperature || 0.7,
-        maxTokens: modelConfig?.maxTokens || 1000
-      },
-      { timeout: AXIOS_TIMEOUT }
-    );
+    
+    const response = await axiosInstance.post(`${apiEndpoints.agent.base}/research`, {
+      topic: config.content || '',
+      depth: config.depth || 'medium',
+      sources: config.sources || [],
+      model: modelConfig ? `${modelConfig.type}/${modelConfig.model}` : 'huggingface/deepseek/deepseek-v3-0324',
+      maxTokens: modelConfig?.maxTokens || 2000,
+      temperature: modelConfig?.temperature || 0.7
+    });
 
     return response.data;
   } catch (error) {
-    console.error('Research Agent API Error:', error);
+    console.error('Research agent error:', error);
     throw error;
   }
 }
 
 export async function executeYoutubeSummarizer(config: YoutubeSummarizerConfig) {
   try {
-    const modelConfig = config.modelConfig;
-    const response = await axios.post(`${API_URL}/agent/youtube-summarizer`, {
-      url: config.url,
-      model: modelConfig ? `${modelConfig.type}/${modelConfig.model}` : 'huggingface/deepseek/deepseek-v3-0324',
-      specialPrompt: modelConfig?.systemPrompt || '',
-      temperature: modelConfig?.temperature || 0.7,
-      maxTokens: modelConfig?.maxTokens || 1000,
+    const response = await axiosInstance.post(apiEndpoints.agent.youtubeSummarizer, {
+      videoUrl: config.content || '',
+      summaryLength: config.summaryLength || 'medium',
+      language: config.language || 'tr'
     });
 
     return response.data;
   } catch (error) {
-    console.error('YouTube Summarizer API Error:', error);
+    console.error('Youtube summarizer error:', error);
     throw error;
   }
 }
 
 export async function executeAIActionAnalysis(config: AIActionAnalysisConfig) {
   try {
-    console.log('🎯 AI Action Analysis - Starting execution:', config);
-    
-    if (!config.selectedCustomer) {
-      console.error('❌ AI Action Analysis - No customer selected');
-      throw new Error('Müşteri seçilmemiş');
-    }
-
-    console.log('✅ AI Action Analysis - Customer found:', config.selectedCustomer);
-
     const modelConfig = config.modelConfig;
-    console.log('🔧 AI Action Analysis - Model config:', modelConfig);
     
-    const requestParams = {
+    const analysisRequest = {
       content: config.content || '',
       model: modelConfig ? `${modelConfig.type}/${modelConfig.model}` : 'huggingface/deepseek/deepseek-v3-0324',
-      maxTokens: modelConfig?.maxTokens || 1000,
-      temperature: modelConfig?.temperature || 0.7,
-      customerNo: config.selectedCustomer.id.toString()
+      customerNo: config.selectedCustomer?.customerNo,
+      selectedCustomer: config.selectedCustomer,
     };
-    
-    console.log('🚀 AI Action Analysis - Request params:', requestParams);
-    
-    const response = await executeActionAnalysis(
-      requestParams.content,
-      requestParams.model,
-      requestParams.maxTokens,
-      requestParams.temperature,
-      requestParams.customerNo
-    );
 
-    console.log('✅ AI Action Analysis - Response received:', response);
-    return response;
+    return await executeActionAnalysis(analysisRequest);
   } catch (error) {
-    console.error('❌ AI Action Analysis error:', error);
+    console.error('AI Action Analysis error:', error);
     throw error;
   }
 }
@@ -616,14 +662,14 @@ export async function fetchEmailAttachments(attachmentIds: number[]) {
     console.log('📎 Fetching email attachments:', attachmentIds);
     
     const response = await axios.post(
-      `${API_URL}/api/email-attachments/by-ids/with-content`,
+      `${apiEndpoints.agent.base}/api/email-attachments/by-ids/with-content`,
       attachmentIds,
       {
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json'
         },
-        timeout: AXIOS_TIMEOUT
+        timeout: config.api.timeout
       }
     );
 

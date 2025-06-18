@@ -1,21 +1,29 @@
 "use client";
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
+import { Save } from "lucide-react";
 import { AgentType } from '@/store/types';
 import { defaultAgentConfigs } from '@/store/defaultConfigs';
 import FlowEditor from '@/components/flow/FlowEditor';
 import { AgentCard } from '@/components';
 import { Separator } from "@/components/ui/separator";
 import FinanceActionTypeModal from '@/components/FinanceActionTypeModal';
+import SaveWorkflowModal from '@/components/SaveWorkflowModal';
+import WorkflowSelector from '@/components/WorkflowSelector';
+import { useActionTypes } from '@/hooks/useActionTypes';
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState<string>('general');
   const [searchQuery, setSearchQuery] = useState('');
   const [isFinanceActionModalOpen, setIsFinanceActionModalOpen] = useState(false);
+  const [isSaveWorkflowModalOpen, setIsSaveWorkflowModalOpen] = useState(false);
+  const [isWorkflowSelectorOpen, setIsWorkflowSelectorOpen] = useState(false);
+
+  // Initialize MCP actions on component mount
+  const { actionTypes, isLoading: actionTypesLoading } = useActionTypes();
 
   const filteredAgents = useMemo(() => {
     const query = searchQuery.toLowerCase();
@@ -33,6 +41,18 @@ export default function Home() {
   }, [activeTab]);
 
   const commonNodes: AgentType[] = ['result', 'conditional'];
+
+  // Show loading while action types are being fetched
+  if (actionTypesLoading) {
+    return (
+      <main className="flex h-screen overflow-hidden items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto mb-4"></div>
+          <p className="text-muted-foreground">MCP Action'ları yükleniyor...</p>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="flex h-screen overflow-hidden">
@@ -65,15 +85,15 @@ export default function Home() {
                 </TabsList>
               </div>
 
-              {/* Add Action Button - Only for Business Tab */}
+              {/* Action Button - Only for Business Tab */}
               {activeTab === 'business' && (
-                <div className="px-4 py-2 border-b shrink-0">
+                <div className="px-4 py-3 border-b shrink-0">
                   <Button
                     onClick={() => setIsFinanceActionModalOpen(true)}
                     className="w-full"
                     variant="outline"
                   >
-                    <Plus className="h-4 w-4 mr-2" />
+                    <Save className="h-4 w-4 mr-2" />
                     Yeni Action Ekle/Düzenle
                   </Button>
                 </div>
@@ -114,14 +134,27 @@ export default function Home() {
 
         {/* Sağ Panel - Flow Editor */}
         <div className="flex-1 overflow-hidden">
-          <FlowEditor />
+          <FlowEditor 
+            onSaveWorkflow={() => setIsSaveWorkflowModalOpen(true)}
+            onLoadWorkflow={() => setIsWorkflowSelectorOpen(true)}
+          />
         </div>
       </div>
 
-      {/* Finance Action Type Modal */}
+      {/* Modals */}
       <FinanceActionTypeModal
         isOpen={isFinanceActionModalOpen}
         onClose={() => setIsFinanceActionModalOpen(false)}
+      />
+      
+      <SaveWorkflowModal
+        isOpen={isSaveWorkflowModalOpen}
+        onClose={() => setIsSaveWorkflowModalOpen(false)}
+      />
+      
+      <WorkflowSelector
+        isOpen={isWorkflowSelectorOpen}
+        onClose={() => setIsWorkflowSelectorOpen(false)}
       />
     </main>
   );

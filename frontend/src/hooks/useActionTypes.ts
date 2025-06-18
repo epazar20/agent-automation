@@ -1,64 +1,46 @@
-import { useSelector, useDispatch } from 'react-redux';
-import { useCallback, useEffect } from 'react';
-import { RootState, AppDispatch } from '@/store';
-import { 
-  fetchFinanceActionTypes, 
-  selectActionTypes, 
-  selectActionTypesLoading, 
-  selectActionTypesError,
-  selectActionTypeByCode,
-  shouldRefreshActionTypes 
-} from '@/store/slices/actionTypesSlice';
-import { initializeMCPActionConfigs } from '@/store/mcpConstants';
+import { useState, useEffect } from 'react';
+import { FinanceActionType } from '@/store/types';
+import { initializeMCPActionConfigs, dynamicActionConfigs } from '@/store/mcpConstants';
+import { financeActionTypesApi } from '@/api/financeActionTypes';
 
 export function useActionTypes() {
-  const dispatch = useDispatch<AppDispatch>();
-  const actionTypes = useSelector(selectActionTypes);
-  const isLoading = useSelector(selectActionTypesLoading);
-  const error = useSelector(selectActionTypesError);
-  const needsRefresh = useSelector(shouldRefreshActionTypes);
+  const [actionTypes, setActionTypes] = useState<FinanceActionType[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // Fetch action types if needed
-  const fetchActionTypes = useCallback(async () => {
-    try {
-      const result = await dispatch(fetchFinanceActionTypes()).unwrap();
-      initializeMCPActionConfigs(result);
-      return result;
-    } catch (error) {
-      console.error('Error fetching action types:', error);
-      throw error;
-    }
-  }, [dispatch]);
-
-  // Get specific action type by code
-  const getActionTypeByCode = useCallback((code: string) => {
-    return actionTypes.find(type => type.typeCode === code);
-  }, [actionTypes]);
-
-  // Get active action types only
-  const getActiveActionTypes = useCallback(() => {
-    return actionTypes.filter(type => type.isActive).sort((a, b) => a.sortOrder - b.sortOrder);
-  }, [actionTypes]);
-
-  // Auto-fetch on mount if needed
   useEffect(() => {
-    if (actionTypes.length === 0 || needsRefresh) {
-      fetchActionTypes();
-    } else if (actionTypes.length > 0) {
-      // Initialize MCP configs if data already exists
-      initializeMCPActionConfigs(actionTypes);
-    }
-  }, [actionTypes.length, needsRefresh, fetchActionTypes]);
+    const loadActionTypes = async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
+
+        // Initialize MCP action configs
+        await initializeMCPActionConfigs();
+        
+        // Get action types using the new API
+        const types = await financeActionTypesApi.getActive();
+        setActionTypes(types);
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : 'Failed to load action types';
+        setError(errorMessage);
+        console.error('❌ useActionTypes - Error loading action types:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadActionTypes();
+  }, []);
 
   return {
-    actionTypes,
-    activeActionTypes: getActiveActionTypes(),
+    actionTypes: actionTypes.length > 0 ? actionTypes : dynamicActionConfigs,
     isLoading,
     error,
-    needsRefresh,
-    fetchActionTypes,
-    getActionTypeByCode,
-    getActiveActionTypes,
+    refetch: async () => {
+      const types = await financeActionTypesApi.getActive();
+      setActionTypes(types);
+      return types;
+    }
   };
 }
 

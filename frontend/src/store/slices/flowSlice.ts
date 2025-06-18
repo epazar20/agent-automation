@@ -35,6 +35,10 @@ const flowSlice = createSlice({
         node.position = action.payload.position;
       }
     },
+    // Tüm node'ları değiştirme
+    setNodes: (state, action: PayloadAction<AgentNode[]>) => {
+      state.nodes = action.payload;
+    },
 
     // Bağlantı işlemleri
     addEdge: (state, action: PayloadAction<FlowConnection>) => {
@@ -48,6 +52,10 @@ const flowSlice = createSlice({
     },
     removeEdge: (state, action: PayloadAction<string>) => {
       state.edges = state.edges.filter(edge => edge.id !== action.payload);
+    },
+    // Tüm edge'leri değiştirme
+    setEdges: (state, action: PayloadAction<FlowConnection[]>) => {
+      state.edges = action.payload;
     },
 
     // Node seçimi
@@ -83,6 +91,11 @@ const flowSlice = createSlice({
         conditionResult: action.payload.conditionResult,
       };
     },
+    
+    // Execution results'ları temizleme
+    clearExecutionResults: (state) => {
+      state.executionResults = {};
+    },
 
     // Tüm durumu sıfırlama
     resetFlow: (state) => {
@@ -101,12 +114,15 @@ export const {
   updateNode,
   removeNode,
   updateNodePosition,
+  setNodes,
   addEdge,
   updateEdge,
   removeEdge,
+  setEdges,
   selectNode,
   setIsRunning,
   updateExecutionResult,
+  clearExecutionResults,
   resetFlow,
   importFlow,
 } = flowSlice.actions;

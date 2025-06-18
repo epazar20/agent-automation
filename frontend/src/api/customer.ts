@@ -1,14 +1,32 @@
 import { Customer, ActionAnalysisResponse } from '@/store/types';
+import { apiEndpoints, config } from '@/config/env';
 
-const API_BASE_URL = 'http://localhost:8083/mcp-provider';
+// Configure fetch with timeout
+const fetchWithTimeout = async (url: string, options: RequestInit = {}): Promise<Response> => {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), config.api.timeout);
+
+  try {
+    const response = await fetch(url, {
+      ...options,
+      signal: controller.signal,
+      headers: {
+        'Content-Type': 'application/json',
+        ...options.headers,
+      },
+    });
+    clearTimeout(timeoutId);
+    return response;
+  } catch (error) {
+    clearTimeout(timeoutId);
+    throw error;
+  }
+};
 
 export async function searchCustomers(searchText: string): Promise<Customer[]> {
   try {
-    const response = await fetch(`${API_BASE_URL}/api/customers/search`, {
+    const response = await fetchWithTimeout(`${apiEndpoints.mcp.customers}/search`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
       body: JSON.stringify({ searchText }),
     });
 
@@ -24,51 +42,26 @@ export async function searchCustomers(searchText: string): Promise<Customer[]> {
   }
 }
 
-export async function executeActionAnalysis(
-  content: string,
-  model: string,
-  maxTokens: number,
-  temperature: number,
-  customerNo: string
-): Promise<ActionAnalysisResponse> {
+export async function executeActionAnalysis(request: {
+  content: string;
+  model?: string;
+  customerNo?: string;
+  selectedCustomer?: Customer;
+}): Promise<ActionAnalysisResponse> {
   try {
-    console.log('🔥 executeActionAnalysis - Starting API call:', {
-      endpoint: `${API_BASE_URL}/action-analysis`,
-      payload: {
-        content,
-        model,
-        maxTokens,
-        temperature,
-        customerNo,
-      }
-    });
-
-    const response = await fetch(`${API_BASE_URL}/action-analysis`, {
+    const response = await fetchWithTimeout(apiEndpoints.mcp.actionAnalysis, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        content,
-        model,
-        maxTokens,
-        temperature,
-        customerNo,
-      }),
+      body: JSON.stringify(request),
     });
-
-    console.log('📡 executeActionAnalysis - Response status:', response.status);
 
     if (!response.ok) {
-      console.error('❌ executeActionAnalysis - HTTP error:', response.status, response.statusText);
-      throw new Error(`HTTP error! status: ${response.status}`);
+      const errorText = await response.text();
+      throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
     }
 
-    const result = await response.json();
-    console.log('✅ executeActionAnalysis - Success response:', result);
-    return result;
+    return await response.json();
   } catch (error) {
-    console.error('❌ executeActionAnalysis - Error:', error);
+    console.error('Action analysis error:', error);
     throw error;
   }
 } 
