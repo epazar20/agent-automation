@@ -1,19 +1,59 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { FinanceActionType, ActionTypesState } from '../types';
-
-const API_URL = 'http://localhost:8083/mcp-provider';
+import { 
+  getFinanceActionTypes, 
+  createFinanceActionType, 
+  updateFinanceActionType, 
+  deleteFinanceActionType,
+  CreateFinanceActionTypeRequest 
+} from '../../api/financeActionTypes';
 
 // Async thunk to fetch finance action types
 export const fetchFinanceActionTypes = createAsyncThunk(
   'actionTypes/fetchFinanceActionTypes',
   async (_, { rejectWithValue }) => {
     try {
-      const response = await fetch(`${API_URL}/api/finance-action-types`);
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      const data: FinanceActionType[] = await response.json();
+      const data = await getFinanceActionTypes();
       return data;
+    } catch (error) {
+      return rejectWithValue(error instanceof Error ? error.message : 'Unknown error');
+    }
+  }
+);
+
+// Async thunk to create finance action type
+export const createFinanceActionTypeThunk = createAsyncThunk(
+  'actionTypes/createFinanceActionType',
+  async (data: CreateFinanceActionTypeRequest, { rejectWithValue }) => {
+    try {
+      const result = await createFinanceActionType(data);
+      return result;
+    } catch (error) {
+      return rejectWithValue(error instanceof Error ? error.message : 'Unknown error');
+    }
+  }
+);
+
+// Async thunk to update finance action type
+export const updateFinanceActionTypeThunk = createAsyncThunk(
+  'actionTypes/updateFinanceActionType',
+  async ({ id, data }: { id: number; data: CreateFinanceActionTypeRequest }, { rejectWithValue }) => {
+    try {
+      const result = await updateFinanceActionType(id, data);
+      return result;
+    } catch (error) {
+      return rejectWithValue(error instanceof Error ? error.message : 'Unknown error');
+    }
+  }
+);
+
+// Async thunk to delete finance action type
+export const deleteFinanceActionTypeThunk = createAsyncThunk(
+  'actionTypes/deleteFinanceActionType',
+  async (id: number, { rejectWithValue }) => {
+    try {
+      await deleteFinanceActionType(id);
+      return id;
     } catch (error) {
       return rejectWithValue(error instanceof Error ? error.message : 'Unknown error');
     }
@@ -41,6 +81,7 @@ const actionTypesSlice = createSlice({
   },
   extraReducers: (builder) => {
     builder
+      // Fetch action types
       .addCase(fetchFinanceActionTypes.pending, (state) => {
         state.isLoading = true;
         state.error = null;
@@ -52,6 +93,51 @@ const actionTypesSlice = createSlice({
         state.error = null;
       })
       .addCase(fetchFinanceActionTypes.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload as string;
+      })
+      // Create action type
+      .addCase(createFinanceActionTypeThunk.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(createFinanceActionTypeThunk.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.actionTypes.push(action.payload);
+        state.error = null;
+      })
+      .addCase(createFinanceActionTypeThunk.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload as string;
+      })
+      // Update action type
+      .addCase(updateFinanceActionTypeThunk.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(updateFinanceActionTypeThunk.fulfilled, (state, action) => {
+        state.isLoading = false;
+        const index = state.actionTypes.findIndex(type => type.id === action.payload.id);
+        if (index !== -1) {
+          state.actionTypes[index] = action.payload;
+        }
+        state.error = null;
+      })
+      .addCase(updateFinanceActionTypeThunk.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload as string;
+      })
+      // Delete action type
+      .addCase(deleteFinanceActionTypeThunk.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(deleteFinanceActionTypeThunk.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.actionTypes = state.actionTypes.filter(type => type.id !== action.payload);
+        state.error = null;
+      })
+      .addCase(deleteFinanceActionTypeThunk.rejected, (state, action) => {
         state.isLoading = false;
         state.error = action.payload as string;
       });

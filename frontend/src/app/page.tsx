@@ -3,15 +3,19 @@
 import { useState, useMemo } from 'react';
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Plus } from "lucide-react";
 import { AgentType } from '@/store/types';
 import { defaultAgentConfigs } from '@/store/defaultConfigs';
 import FlowEditor from '@/components/flow/FlowEditor';
 import { AgentCard } from '@/components';
 import { Separator } from "@/components/ui/separator";
+import FinanceActionTypeModal from '@/components/FinanceActionTypeModal';
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState<string>('general');
   const [searchQuery, setSearchQuery] = useState('');
+  const [isFinanceActionModalOpen, setIsFinanceActionModalOpen] = useState(false);
 
   const filteredAgents = useMemo(() => {
     const query = searchQuery.toLowerCase();
@@ -61,6 +65,20 @@ export default function Home() {
                 </TabsList>
               </div>
 
+              {/* Add Action Button - Only for Business Tab */}
+              {activeTab === 'business' && (
+                <div className="px-4 py-2 border-b shrink-0">
+                  <Button
+                    onClick={() => setIsFinanceActionModalOpen(true)}
+                    className="w-full"
+                    variant="outline"
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Yeni Action Ekle/Düzenle
+                  </Button>
+                </div>
+              )}
+
               {/* Tab Content - Scrollable */}
               <div className="flex-1 overflow-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-thumb]:bg-muted-foreground/20 [&::-webkit-scrollbar-track]:bg-muted/10 hover:[&::-webkit-scrollbar-thumb]:bg-muted-foreground/30">
                 <div className="p-4 space-y-4">
@@ -99,6 +117,12 @@ export default function Home() {
           <FlowEditor />
         </div>
       </div>
+
+      {/* Finance Action Type Modal */}
+      <FinanceActionTypeModal
+        isOpen={isFinanceActionModalOpen}
+        onClose={() => setIsFinanceActionModalOpen(false)}
+      />
     </main>
   );
 }

@@ -125,3 +125,33 @@ body {
 .animate-spin {
   animation: spin 1s linear infinite;
 }
+
+/* Modern Dark Scrollbar Styles */
+.modern-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(75 85 99) rgb(31 41 55);
+}
+
+.modern-scrollbar::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.modern-scrollbar::-webkit-scrollbar-track {
+  background: rgb(31 41 55);
+  border-radius: 10px;
+}
+
+.modern-scrollbar::-webkit-scrollbar-thumb {
+  background: rgb(75 85 99);
+  border-radius: 10px;
+  border: 1px solid rgb(31 41 55);
+}
+
+.modern-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgb(107 114 128);
+}
+
+.modern-scrollbar::-webkit-scrollbar-corner {
+  background: rgb(31 41 55);
+}
