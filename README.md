@@ -10,7 +10,7 @@ Modern AI tabanlı iş süreçlerini otomatikleştiren **görsel flow editörü*
 
 Drag & drop arayüzü ile karmaşık AI iş akışları oluşturun, finansal analiz yapın, otomatik raporlama ve e-posta gönderimi gerçekleştirin.
 
-![AI Agent Flow Editor](https://github.com/user-attachments/assets/a3f4d857-f685-40d0-94a2-87f4c3e553e9)
+![AI Agent Flow Editor](https://github.com/user-attachments/assets/e7ca3998-cbaa-4e13-80d5-69dc24be7130)
 *AI Agent Flow Editor - Görsel İş Akışı Tasarım Arayüzü*
 
 ## 📋 İçindekiler
