@@ -51,31 +51,138 @@ if (config.debug) {
 
 export async function executeWebScraper(config: WebScraperConfig) {
   try {
+    console.log('🔍 Web Scraper - Starting execution with config:', config);
+    console.log('🔍 Web Scraper - Full config object:', JSON.stringify(config, null, 2));
+    
     const modelConfig = config.modelConfig;
-    const response = await axiosInstance.post(apiEndpoints.agent.webScraper, {
-      url: config.content || '',
-      rules: config.rules,
-      model: modelConfig ? `${modelConfig.type}/${modelConfig.model}` : 'huggingface/deepseek/deepseek-v3-0324',
-      maxTokens: modelConfig?.maxTokens || 1000,
-      temperature: modelConfig?.temperature || 0.7
+    
+    // **DEBUG**: Log exactly what we received
+    console.log('🔍 Web Scraper - Received modelConfig:', {
+      exists: !!modelConfig,
+      type: modelConfig?.type,
+      model: modelConfig?.model,
+      fullConfig: JSON.stringify(modelConfig, null, 2)
     });
+    
+    // Validate model configuration
+    if (!modelConfig) {
+      console.error('❌ Web Scraper - No model configuration found');
+      throw new Error('Model configuration is required for Web Scraper');
+    }
+    
+    // **SAFETY CHECK**: If still OpenAI, force to HuggingFace
+    let finalModelConfig = modelConfig;
+    if (modelConfig.type === 'openai') {
+      console.log('🚨 SAFETY CHECK - Still received OpenAI config, forcing HuggingFace');
+      finalModelConfig = {
+        type: 'huggingface',
+        model: 'deepseek/deepseek-v3-0324',
+        temperature: 0.7,
+        maxTokens: 4096,
+        topP: 1,
+        systemPrompt: '',
+      } as any;
+      console.log('🔧 SAFETY CHECK - Using corrected model config:', finalModelConfig);
+    }
+    
+    console.log('🎯 Web Scraper - Final model config to use:', finalModelConfig);
+    console.log('🎯 Web Scraper - Model config details:', {
+      exists: !!finalModelConfig,
+      type: finalModelConfig?.type,
+      model: finalModelConfig?.model,
+      temperature: finalModelConfig?.temperature,
+      maxTokens: finalModelConfig?.maxTokens
+    });
+    
+    // Parse content if it's from Web Searcher response
+    let processedContent = config.content || '';
+    console.log('🔍 Web Scraper - Original content:', processedContent);
+    
+    // Check if content is a JSON response from Web Searcher
+    if (typeof processedContent === 'string' && processedContent.includes('"content"')) {
+      try {
+        const parsedContent = JSON.parse(processedContent);
+        console.log('🔍 Web Scraper - Parsed JSON content:', parsedContent);
+        
+        if (parsedContent.success === false) {
+          // This is an error response, don't use it
+          console.warn('⚠️ Web Scraper - Received error response as content:', parsedContent);
+          processedContent = '';
+        } else if (parsedContent.content) {
+          // Extract the actual content
+          processedContent = parsedContent.content;
+          console.log('✅ Web Scraper - Extracted content from Web Searcher response');
+        } else {
+          // No valid content found
+          console.warn('⚠️ Web Scraper - No valid content found in JSON response');
+          processedContent = '';
+        }
+      } catch (parseError) {
+        console.log('ℹ️ Web Scraper - Content is not JSON, using as-is');
+      }
+    }
+    
+    // If content is empty, provide a default message
+    if (!processedContent || processedContent.trim() === '') {
+      processedContent = 'Web sayfası içeriği bulunamadı. Lütfen geçerli bir URL sağlayın.';
+      console.log('⚠️ Web Scraper - Using default content message');
+    }
+    
+    console.log('🔍 Web Scraper - Final processed content:', processedContent);
+    
+    // Build model string correctly
+    console.log('🔧 Web Scraper - Processing model config...');
+    
+    const modelConfigAny = finalModelConfig as any; // Type assertion to avoid union type issues
+    console.log('🔧 Web Scraper - Model type:', modelConfigAny.type, 'Model:', modelConfigAny.model);
+    
+    let modelString = '';
+    if (modelConfigAny.type === 'huggingface') {
+      modelString = `huggingface/${modelConfigAny.model}`;
+    } else if (modelConfigAny.type === 'openai') {
+      modelString = `openai/${modelConfigAny.model}`;
+    } else if (modelConfigAny.type === 'gemini') {
+      modelString = `gemini/${modelConfigAny.model}`;
+    } else if (modelConfigAny.type === 'anthropic') {
+      modelString = `anthropic/${modelConfigAny.model}`;
+    } else if (modelConfigAny.type === 'llama2') {
+      modelString = `llama2/${modelConfigAny.model}`;
+    } else {
+      // Generic fallback
+      modelString = `${modelConfigAny.type}/${modelConfigAny.model}`;
+    }
+    
+    console.log('🔧 Web Scraper - Built generic model string:', modelString);
+    
+    const requestPayload = {
+      content: processedContent,
+      specialPrompt: config.specialPrompt || 'Sen bir web içerik özetleyicisin. Verilen metni özetleyeceksin',
+      maxLink: config.rules?.maxPages || 1,
+      maxDepth: config.rules?.maxDepth || 0,
+      model: modelString,
+      temperature: finalModelConfig.temperature || 0.7,
+      maxTokens: finalModelConfig.maxTokens || 4096,
+    };
+    
+    console.log('🚀 Web Scraper - Request payload:', requestPayload);
+    console.log('🚀 Web Scraper - Final model string being sent:', modelString);
+    
+    const response = await axiosInstance.post(apiEndpoints.agent.webScraper, requestPayload);
 
+    console.log('✅ Web Scraper - Response received:', response.data);
     return response.data;
   } catch (error) {
-    console.error('Web scraper error:', error);
+    console.error('❌ Web scraper error:', error);
     throw error;
   }
 }
 
 export async function executeWebSearcher(config: WebSearcherConfig) {
   try {
-    const modelConfig = config.modelConfig;
-    
     const response = await axiosInstance.post(apiEndpoints.agent.webSearcher, {
-      query: config.content || '',
-      model: modelConfig ? `${modelConfig.type}/${modelConfig.model}` : 'huggingface/deepseek/deepseek-v3-0324',
-      maxTokens: modelConfig?.maxTokens || 1000,
-      temperature: modelConfig?.temperature || 0.7
+      content: config.content || '',
+        language: config.filters?.language || 'en-US',
+      maxResult: config.maxResults || 10
     });
 
     return response.data;
@@ -207,14 +314,29 @@ export async function executeTextGenerator(config: any) {
 
 export async function executeTranslator(config: TranslatorConfig) {
   try {
-    const response = await axiosInstance.post(apiEndpoints.agent.translator, {
-      text: config.content || '',
-      targetLanguage: config.targetLang
-    });
+    console.log('🌐 Translator - Starting execution with config:', config);
+    
+    const modelConfig = config.modelConfig;
+    console.log('🔧 Translator - Model config:', modelConfig);
+    
+    const requestPayload = {
+      content: config.content || '',
+      model: modelConfig ? `${modelConfig.type}/${modelConfig.model}` : 'huggingface/deepseek/deepseek-v3-0324',
+      targetLanguage: config.targetLang?.toUpperCase() || 'TR',
+      specialPrompt: config.specialPrompt || modelConfig?.systemPrompt || 'Dil bilgisi ve anlam açısından kontrol edicisin sorun varsa ancak düzeltmelisin',
+      temperature: modelConfig?.temperature || 0.7,
+      maxTokens: modelConfig?.maxTokens || 1000
+    };
+    
+    console.log('🚀 Translator - Request payload:', requestPayload);
+    console.log('🚀 Translator - API endpoint:', apiEndpoints.agent.translator);
+    
+    const response = await axiosInstance.post(apiEndpoints.agent.translator, requestPayload);
 
+    console.log('✅ Translator - Response received:', response.data);
     return response.data;
   } catch (error) {
-    console.error('Translator error:', error);
+    console.error('❌ Translator error:', error);
     throw error;
   }
 }
@@ -240,8 +362,21 @@ export async function executeResearchAgent(config: ResearchAgentConfig) {
 
 export async function executeYoutubeSummarizer(config: YoutubeSummarizerConfig) {
   try {
+    const modelConfig = config.modelConfig;
+    
+    // Prepare the content - use URL from config.url or config.content
+    let content = config.content || '';
+    if (config.url && config.url.trim()) {
+      // If URL is specifically set, use it as content
+      content = `youtube url şu şekilde ${config.url.trim()}`;
+    }
+    
     const response = await axiosInstance.post(apiEndpoints.agent.youtubeSummarizer, {
-      videoUrl: config.content || ''
+      content: content,
+      specialPrompt: config.specialPrompt || 'Sen bir transkript özetleyicisin. Verilen metni özetleyeceksin',
+      model: modelConfig ? `${modelConfig.type}/${modelConfig.model}` : 'huggingface/deepseek/deepseek-v3-0324',
+      maxTokens: modelConfig?.maxTokens || 1000,
+      temperature: modelConfig?.temperature || 0.7
     });
 
     return response.data;

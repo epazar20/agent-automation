@@ -118,12 +118,12 @@ export const apiEndpoints = {
   // Agent Provider endpoints
   agent: {
     base: config.api.agentProvider,
-    webScraper: `${config.api.agentProvider}/api/agents/web-scraper`,
-    webSearcher: `${config.api.agentProvider}/api/agents/web-searcher`,
-    translator: `${config.api.agentProvider}/api/agents/translator`,
+    webScraper: `${config.api.agentProvider}/api/agent/web-scrapper`,
+    webSearcher: `${config.api.agentProvider}/api/agent/web-searcher`,
+    translator: `${config.api.agentProvider}/api/agent/translator`,
     dataAnalyser: `${config.api.agentProvider}/api/agent/data-analyser`,
-    imageGenerator: `${config.api.agentProvider}/api/agents/image-generator`,
-    youtubeSummarizer: `${config.api.agentProvider}/api/agents/youtube-summarize`,
+    imageGenerator: `${config.api.agentProvider}/api/agent/image-generator`,
+    youtubeSummarizer: `${config.api.agentProvider}/api/agent/youtube-summarize`,
   }
 };
 

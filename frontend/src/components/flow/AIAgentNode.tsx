@@ -207,6 +207,59 @@ export default function AIAgentNode({ id, data }: AIAgentNodeProps) {
     }
   }, [(config as MCPSupplierAgentConfig).actionType, data.type, id]);
 
+  // Initialize model configuration for nodes that need it
+  useEffect(() => {
+    if (data.type === 'webScraper' && (!config.modelConfig || config.modelConfig.type === 'openai')) {
+      console.log('🔧 Initializing Web Scraper model config to HuggingFace default');
+      const defaultModelConfig = defaultAgentConfigs[data.type]?.modelConfig || createDefaultAgentConfig(data.type).modelConfig;
+      console.log('🔧 Default model config for Web Scraper:', defaultModelConfig);
+      
+      setConfig(prevConfig => ({
+        ...prevConfig,
+        modelConfig: defaultModelConfig
+      }));
+    }
+  }, [data.type, config.modelConfig]);
+
+  // **CRITICAL FIX**: Force update existing Web Scraper nodes with wrong config
+  useEffect(() => {
+    if (data.type === 'webScraper' && config.modelConfig?.type === 'openai') {
+      console.log('🚨 CRITICAL FIX - Web Scraper has OpenAI config, forcing HuggingFace update');
+      const correctModelConfig = defaultAgentConfigs.webScraper.modelConfig || {
+        type: 'huggingface',
+        model: 'deepseek/deepseek-v3-0324',
+        temperature: 0.7,
+        maxTokens: 4096,
+        topP: 1,
+        systemPrompt: '',
+      };
+      
+      console.log('🔧 CRITICAL FIX - Applying correct model config:', correctModelConfig);
+      
+      const correctedConfig = {
+        ...config,
+        modelConfig: correctModelConfig
+      };
+      
+      setConfig(correctedConfig as any);
+      
+      // Immediately save to Redux store
+      dispatch(updateNode({
+        id,
+        updates: {
+          data: {
+            type: data.type,
+            config: correctedConfig as any,
+            nodeType: data.nodeType,
+          },
+        },
+      }));
+      
+      console.log('✅ CRITICAL FIX - Web Scraper config corrected and saved to Redux');
+      toast.success('Web Scraper model konfigürasyonu düzeltildi');
+    }
+  }, [data.type, config.modelConfig?.type, dispatch, id, data.nodeType]);
+
   // Find previous node's output content if available
   useEffect(() => {
     if (data.type !== 'youtubeSummarizer') {
@@ -352,14 +405,48 @@ export default function AIAgentNode({ id, data }: AIAgentNodeProps) {
   };
 
   const updateModelConfig = (updates: Partial<ModelConfig>) => {
+    // Ensure we have a base model config - use default if not present
+    const baseModelConfig = config.modelConfig || 
+                            defaultAgentConfigs[data.type]?.modelConfig || 
+                            createDefaultAgentConfig(data.type).modelConfig;
+    
     const updatedConfig = {
       ...config,
       modelConfig: {
-        ...config.modelConfig,
+        ...baseModelConfig,
         ...updates,
       }
     };
-    setConfig(updatedConfig as AgentConfig);
+    
+    console.log('🔧 updateModelConfig - Updated config:', {
+      type: data.type,
+      oldModelConfig: config.modelConfig,
+      baseModelConfig,
+      updates,
+      newModelConfig: updatedConfig.modelConfig
+    });
+    
+    setConfig(updatedConfig as any);
+    
+    // **FIX**: Automatically save model config changes to Redux store
+    // This ensures execution uses the correct model configuration
+    console.log('💾 updateModelConfig - Auto-saving to Redux store:', {
+      nodeId: id,
+      modelConfig: updatedConfig.modelConfig
+    });
+    
+    dispatch(updateNode({
+      id,
+      updates: {
+        data: {
+          type: data.type,
+          config: updatedConfig as any,
+          nodeType: data.nodeType,
+        },
+      },
+    }));
+    
+    toast.success('Model konfigürasyonu güncellendi');
   };
 
   const updateAIActionAnalysisConfig = (updates: Partial<AIActionAnalysisConfig>) => {

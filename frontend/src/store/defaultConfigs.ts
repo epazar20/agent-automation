@@ -44,10 +44,12 @@ export const defaultAgentConfigs: Record<AgentType, Partial<AgentConfig>> = {
   webScraper: {
     name: 'Web Scraper',
     description: 'Web sayfalarından veri çıkarma ve analiz etme',
+    specialPrompt: 'Sen bir web içerik özetleyicisin. Verilen metni özetleyeceksin',
     rules: {
-      maxDepth: 2,
-      maxPages: 10,
+      maxDepth: 0,
+      maxPages: 1,
     },
+    modelConfig: defaultModelConfig.huggingface,
   },
   webSearcher: {
     name: 'Web Searcher',
@@ -196,7 +198,7 @@ export const defaultAgentConfigs: Record<AgentType, Partial<AgentConfig>> = {
   },
 };
 
-export function createDefaultAgentConfig(type: AgentType, llmType: LLMType = 'openai'): AgentConfig {
+export function createDefaultAgentConfig(type: AgentType, llmType: LLMType = 'huggingface'): AgentConfig {
   const baseConfig = defaultAgentConfigs[type];
   const modelConfig = defaultModelConfig[llmType];
 
