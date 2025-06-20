@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Handle, Position } from 'reactflow';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -89,7 +89,90 @@ export default function AIAgentNode({ id, data }: AIAgentNodeProps) {
   const activeCustomer = useSelector((state: RootState) => state.customer.activeCustomer);
 
   const isProcessing = executionStatus === 'running';
-  const hasContent = executionResult?.content;
+  
+  // Enhanced content checking for different node types
+  const hasContent = useMemo(() => {
+    // For regular nodes with direct content
+    if (executionResult?.content) {
+      return true;
+    }
+    
+    // For MCP Supplier Agent - comprehensive content checking
+    if (data.type === 'mcpSupplierAgent' && executionResult) {
+      // Check if there's any data at all
+      if (executionResult.data) {
+        // Check if there are results
+        if (executionResult.data.results && Array.isArray(executionResult.data.results) && executionResult.data.results.length > 0) {
+          // Check if any result has meaningful content
+          const hasResultContent = executionResult.data.results.some((result: any) => {
+            return result.status === 'success' || result.status === 'error' || 
+                   result.message || result.data || result.content;
+          });
+          if (hasResultContent) return true;
+        }
+        
+        // Check for direct content in data
+        if (executionResult.data.content) {
+          return true;
+        }
+        
+        // Check if data has any meaningful properties
+        const dataKeys = Object.keys(executionResult.data);
+        if (dataKeys.length > 0) {
+          // Check for common MCP response properties
+          const mcpKeys = ['results', 'success', 'message', 'data', 'error', 'status'];
+          const hasMcpProperties = dataKeys.some(key => mcpKeys.includes(key));
+          if (hasMcpProperties) return true;
+        }
+      }
+      
+      // Check for success/error status at root level
+      if (executionResult.success !== undefined || executionResult.error || executionResult.message) {
+        return true;
+      }
+    }
+    
+    return false;
+  }, [executionResult, data.type]);
+  
+  // DEBUG: Log content detection for MCP Supplier Agent
+  useEffect(() => {
+    if (data.type === 'mcpSupplierAgent' && executionResult) {
+      console.log('🔍 MCP Content Debug:', {
+        nodeId: id,
+        actionType: (config as MCPSupplierAgentConfig).actionType,
+        hasExecutionResult: !!executionResult,
+        hasContent: hasContent,
+        executionResultKeys: Object.keys(executionResult),
+        executionResult: executionResult,
+        hasData: !!executionResult?.data,
+        dataKeys: executionResult?.data ? Object.keys(executionResult.data) : 'N/A',
+        hasResults: !!executionResult?.data?.results,
+        resultsLength: executionResult?.data?.results?.length || 0,
+        results: executionResult?.data?.results
+      });
+      
+      if (executionResult?.data?.results) {
+        executionResult.data.results.forEach((result: any, index: number) => {
+          console.log(`🔍 MCP Result ${index}:`, {
+            status: result.status,
+            actionType: result.actionType,
+            hasData: !!result.data,
+            hasMessage: !!result.message,
+            hasContent: !!result.data?.content,
+            message: result.message,
+            dataKeys: result.data ? Object.keys(result.data) : 'N/A',
+            fullResult: result
+          });
+        });
+      } else {
+        console.log('❌ No results found in executionResult.data');
+      }
+      
+      console.log('📋 Final hasContent value:', hasContent);
+    }
+  }, [data.type, executionResult, hasContent, id, config]);
+  
   const hasChart = data.type === 'dataAnalyst' && executionResult?.base64Image;
   
   // Check if MCP Supplier Agent has attachments
@@ -610,6 +693,165 @@ export default function AIAgentNode({ id, data }: AIAgentNodeProps) {
     }
 
     return formatted;
+  };
+
+  // Get formatted content for display - unified system for all node types
+  const getDisplayContent = () => {
+    console.log('🎯 getDisplayContent called for node type:', data.type, 'executionResult:', executionResult);
+    
+    if (!executionResult) {
+      return 'İçerik bulunamadı';
+    }
+    
+    const contentParts: string[] = [];
+    
+    // 1. ALWAYS show API result status at the top (unified for all node types)
+    if (executionResult.success !== undefined) {
+      if (executionResult.success) {
+        contentParts.push(`# ✅ İşlem Başarılı\n\n`);
+      } else {
+        contentParts.push(`# ❌ İşlem Başarısız\n\n`);
+      }
+      
+      // Show message if available
+      if (executionResult.message) {
+        contentParts.push(`**API Sonucu:** ${executionResult.message}\n\n`);
+      }
+    } else if (executionResult.status) {
+      // Alternative status field
+      const isSuccess = executionResult.status === 'success' || executionResult.status === 'completed';
+      if (isSuccess) {
+        contentParts.push(`# ✅ İşlem Başarılı\n\n`);
+      } else {
+        contentParts.push(`# ❌ İşlem Durumu: ${executionResult.status}\n\n`);
+      }
+    } else {
+      // Default status when no explicit success/status field
+      contentParts.push(`# 📊 İşlem Sonucu\n\n`);
+    }
+    
+    // 2. Check for content field (primary content display)
+    if (executionResult.content && typeof executionResult.content === 'string' && executionResult.content.trim()) {
+      console.log('✅ Found content field:', executionResult.content);
+      
+      contentParts.push(`## 📄 İçerik\n\n`);
+      
+      // Try to parse as JSON first
+      try {
+        const parsedContent = JSON.parse(executionResult.content);
+        console.log('✅ Content is valid JSON, rendering as JSON viewer');
+        
+        contentParts.push(`### 📊 JSON İçerik\n\n`);
+        contentParts.push(`\`\`\`json\n${JSON.stringify(parsedContent, null, 2)}\n\`\`\`\n\n`);
+        
+        // For specific content types, add formatted sections
+        if (parsedContent.selectedActions || parsedContent.parameters) {
+          contentParts.push(`### 🎯 Yapılandırılmış İçerik\n\n`);
+          
+          if (parsedContent.selectedActions && Array.isArray(parsedContent.selectedActions)) {
+            contentParts.push(`**Seçilen Aksiyonlar:**\n`);
+            parsedContent.selectedActions.forEach((action: string) => {
+              contentParts.push(`- ${action}\n`);
+            });
+            contentParts.push(`\n`);
+          }
+          
+          if (parsedContent.parameters) {
+            contentParts.push(`**Parametreler:**\n`);
+            Object.keys(parsedContent.parameters).forEach(key => {
+              const value = parsedContent.parameters[key];
+              contentParts.push(`- **${key}:** \`${JSON.stringify(value)}\`\n`);
+            });
+            contentParts.push(`\n`);
+          }
+        }
+      } catch {
+        // Not JSON, render as markdown
+        console.log('✅ Content is not JSON, rendering as markdown');
+        
+        contentParts.push(`### 📝 Markdown İçerik\n\n`);
+        contentParts.push(`${formatContent(executionResult.content)}\n\n`);
+      }
+    }
+    
+    // 3. If no content field, show response data as JSON viewer
+    else {
+      console.log('⚠️ No content field found, showing response data as JSON');
+      
+      contentParts.push(`## 📊 API Yanıt Verisi\n\n`);
+      
+      // For MCP Supplier Agent - check for results array in data
+      if (data.type === 'mcpSupplierAgent' && executionResult.data?.results && Array.isArray(executionResult.data.results)) {
+        console.log('🔍 MCP Supplier Agent - Processing results array');
+        
+        contentParts.push(`### 📋 İşlem Sonuçları (${executionResult.data.results.length} adet)\n\n`);
+        
+        executionResult.data.results.forEach((result: any, index: number) => {
+          contentParts.push(`#### İşlem ${index + 1} - ${result.actionType || 'Unknown'}\n\n`);
+          
+          if (result.status === 'success') {
+            contentParts.push(`**Durum:** ✅ Başarılı\n`);
+            if (result.message) {
+              contentParts.push(`**Mesaj:** ${result.message}\n`);
+            }
+            
+            // Show transaction summary if available
+            if (result.data?.transactions && Array.isArray(result.data.transactions)) {
+              contentParts.push(`**İşlem Sayısı:** ${result.data.transactions.length}\n`);
+            }
+            
+            // Show attachment info if available
+            if (result.data?.attachmentIds && Array.isArray(result.data.attachmentIds)) {
+              contentParts.push(`**Oluşturulan Dosyalar:** ${result.data.attachmentIds.length} adet\n`);
+            }
+          } else {
+            contentParts.push(`**Durum:** ❌ Hata\n`);
+            if (result.message) {
+              contentParts.push(`**Hata:** ${result.message}\n`);
+            }
+          }
+          
+          contentParts.push(`\n**Detaylı Veri:**\n`);
+          contentParts.push(`\`\`\`json\n${JSON.stringify(result, null, 2)}\n\`\`\`\n\n`);
+        });
+      }
+      
+      // For Data Analyst - show chart info
+      else if (data.type === 'dataAnalyst' && executionResult.base64Image) {
+        contentParts.push(`### 📊 Grafik Oluşturuldu\n\n`);
+        contentParts.push(`Veri analizi tamamlandı ve grafik oluşturuldu. Grafik görüntüleyici butonuna tıklayarak görebilirsiniz.\n\n`);
+        
+        if (executionResult.analysis) {
+          contentParts.push(`**Analiz Özeti:**\n${executionResult.analysis}\n\n`);
+        }
+      }
+      
+      // For all node types - show complete response data
+      contentParts.push(`### 🔍 Tam API Yanıtı\n\n`);
+      contentParts.push(`\`\`\`json\n${JSON.stringify(executionResult, null, 2)}\n\`\`\`\n`);
+    }
+    
+    // 4. Show error details if failed
+    if (executionResult.success === false && executionResult.error) {
+      contentParts.push(`## ❌ Hata Detayları\n\n`);
+      contentParts.push(`\`\`\`\n${executionResult.error}\n\`\`\`\n\n`);
+    }
+    
+    // 5. Show customer information if available (for relevant node types)
+    if (executionResult.customer) {
+      contentParts.push(`## 👤 Müşteri Bilgileri\n\n`);
+      contentParts.push(`- **Ad:** ${executionResult.customer.firstName || 'N/A'}\n`);
+      contentParts.push(`- **Soyad:** ${executionResult.customer.lastName || 'N/A'}\n`);
+      contentParts.push(`- **Email:** ${executionResult.customer.email || 'N/A'}\n`);
+      if (executionResult.customer.id) {
+        contentParts.push(`- **ID:** ${executionResult.customer.id}\n`);
+      }
+      contentParts.push(`\n`);
+    }
+    
+    const finalContent = contentParts.join('');
+    console.log('✅ Generated unified content for', data.type, ':', finalContent);
+    return finalContent;
   };
 
   const handleActionTypeChange = (selectedType: string) => {
@@ -1294,7 +1536,7 @@ export default function AIAgentNode({ id, data }: AIAgentNodeProps) {
                   ),
                 }}
               >
-                {formatContent(executionResult?.content || '')}
+                {getDisplayContent()}
               </ReactMarkdown>
             </div>
           </div>
