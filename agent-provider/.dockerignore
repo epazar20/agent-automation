@@ -1,0 +1,35 @@
+# Git files
+.git
+.gitignore
+.gitattributes
+
+# IDE files
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Documentation
+README.md
+DEPLOYMENT.md
+*.md
+
+# Build artifacts (keep target/ in build stage)
+logs/
+*.log
+
+# Test files
+src/test/
+
+# Maven wrapper (optional, comment out if needed)
+.mvn/
+mvnw
+mvnw.cmd
+
+# Application properties with secrets
+application-secrets.properties
+application-local.properties 

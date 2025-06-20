@@ -1,0 +1,180 @@
+version: '3.8'
+
+services:
+  # Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: agent-automation-db
+    environment:
+      POSTGRES_DB: mcp_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres123}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-scripts:/docker-entrypoint-initdb.d
+    ports:
+      - "5432:5432"
+    networks:
+      - agent-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # AI Provider Service
+  ai-provider:
+    build:
+      context: ./ai-provider
+      dockerfile: Dockerfile
+    container_name: ai-provider
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - SERVER_PORT=8082
+      - HUGGINGFACE_API_KEY=${HUGGINGFACE_API_KEY}
+    ports:
+      - "8082:8082"
+    networks:
+      - agent-network
+    volumes:
+      - ai-logs:/app/logs
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8082/ai-provider/actuator/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+    depends_on:
+      - postgres
+
+  # Agent Provider Service
+  agent-provider:
+    build:
+      context: ./agent-provider
+      dockerfile: Dockerfile
+    container_name: agent-provider
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - SERVER_PORT=8081
+      - AI_PROVIDER_URL=http://ai-provider:8082/ai-provider
+      - RAPIDAPI_YOUTUBE_TRANSCRIPTOR_KEY=${RAPIDAPI_YOUTUBE_KEY}
+      - DEEPL_API_AUTH_KEY=${DEEPL_API_KEY}
+      - STABILITY_AI_KEY=${STABILITY_AI_KEY}
+    ports:
+      - "8081:8081"
+    networks:
+      - agent-network
+    volumes:
+      - agent-logs:/app/logs
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8081/agent-provider/actuator/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+    depends_on:
+      ai-provider:
+        condition: service_healthy
+
+  # MCP Provider Service
+  mcp-provider:
+    build:
+      context: ./mcp-provider
+      dockerfile: Dockerfile
+    container_name: mcp-provider
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - SERVER_PORT=8083
+      - AI_PROVIDER_BASE_URL=http://ai-provider:8082
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/mcp_db
+      - SPRING_DATASOURCE_USERNAME=postgres
+      - SPRING_DATASOURCE_PASSWORD=${DB_PASSWORD:-postgres123}
+      - DB_PASSWORD=${DB_PASSWORD:-postgres123}
+    ports:
+      - "8083:8083"
+    networks:
+      - agent-network
+    volumes:
+      - mcp-logs:/app/logs
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8083/mcp-provider/actuator/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      ai-provider:
+        condition: service_healthy
+
+  # Frontend Application
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: frontend
+    environment:
+      - NODE_ENV=production
+      - NEXT_PUBLIC_AI_PROVIDER_URL=http://localhost:8082
+      - NEXT_PUBLIC_AGENT_PROVIDER_URL=http://localhost:8081
+      - NEXT_PUBLIC_MCP_PROVIDER_URL=http://localhost:8083
+    ports:
+      - "3000:3000"
+    networks:
+      - agent-network
+    volumes:
+      - frontend-logs:/app/.next/logs
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:3000 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+    depends_on:
+      ai-provider:
+        condition: service_healthy
+      agent-provider:
+        condition: service_healthy
+      mcp-provider:
+        condition: service_healthy
+
+  # Nginx Reverse Proxy
+  nginx:
+    image: nginx:alpine
+    container_name: nginx-proxy
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+      - nginx-logs:/var/log/nginx
+    networks:
+      - agent-network
+    restart: unless-stopped
+    depends_on:
+      - frontend
+      - ai-provider
+      - agent-provider
+      - mcp-provider
+
+networks:
+  agent-network:
+    driver: bridge
+    name: agent-automation-network
+
+volumes:
+  postgres_data:
+    name: agent-automation-postgres-data
+  ai-logs:
+    name: agent-automation-ai-logs
+  agent-logs:
+    name: agent-automation-agent-logs
+  mcp-logs:
+    name: agent-automation-mcp-logs
+  frontend-logs:
+    name: agent-automation-frontend-logs
+  nginx-logs:
+    name: agent-automation-nginx-logs 
