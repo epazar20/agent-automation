@@ -3,12 +3,20 @@ const nextConfig = {
   output: 'standalone',
   poweredByHeader: false,
   compress: true,
-  
-  // Environment variables for Docker
+
+  // Environment variables - force production URLs when deploying
   env: {
-    NEXT_PUBLIC_AI_PROVIDER_URL: process.env.NEXT_PUBLIC_AI_PROVIDER_URL,
-    NEXT_PUBLIC_AGENT_PROVIDER_URL: process.env.NEXT_PUBLIC_AGENT_PROVIDER_URL,
-    NEXT_PUBLIC_MCP_PROVIDER_URL: process.env.NEXT_PUBLIC_MCP_PROVIDER_URL,
+    NEXT_PUBLIC_AI_PROVIDER_URL: process.env.NODE_ENV === 'production'
+      ? 'https://agent-automation-ai-provider.fly.dev/ai-provider'
+      : process.env.NEXT_PUBLIC_AI_PROVIDER_URL || 'http://localhost:8082/ai-provider',
+    NEXT_PUBLIC_AGENT_PROVIDER_URL: process.env.NODE_ENV === 'production'
+      ? 'https://agent-automation-agent-provider.fly.dev/agent-provider'
+      : process.env.NEXT_PUBLIC_AGENT_PROVIDER_URL || 'http://localhost:8081/agent-provider',
+    NEXT_PUBLIC_MCP_PROVIDER_URL: process.env.NODE_ENV === 'production'
+      ? 'https://agent-automation-mcp-provider.fly.dev/mcp-provider'
+      : process.env.NEXT_PUBLIC_MCP_PROVIDER_URL || 'http://localhost:8083/mcp-provider',
+    NEXT_PUBLIC_ENV: 'production',
+    NEXT_PUBLIC_DEBUG: 'false',
   },
 
   // Security headers
@@ -35,7 +43,12 @@ const nextConfig = {
   },
 
   reactStrictMode: true,
+
+  // Remove localhost proxy in production
   async rewrites() {
+    if (process.env.NODE_ENV === 'production') {
+      return [];
+    }
     return [
       {
         source: '/api/:path*',

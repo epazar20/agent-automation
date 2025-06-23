@@ -17,6 +17,18 @@ export interface AppConfig {
 }
 
 /**
+ * Detect if we're in production environment
+ */
+function isProduction(): boolean {
+  if (typeof window !== 'undefined') {
+    // Client-side: check hostname
+    return window.location.hostname.includes('fly.dev');
+  }
+  // Server-side: check NODE_ENV
+  return process.env.NODE_ENV === 'production';
+}
+
+/**
  * Get environment variable with fallback
  */
 function getEnvVar(key: string, fallback: string): string {
@@ -53,19 +65,59 @@ function normalizeUrl(url: string): string {
 }
 
 /**
+ * Get production URLs - NEVER use localhost in production
+ */
+function getProductionApiUrls() {
+  return {
+    mcpProvider: 'https://agent-automation-mcp-provider.fly.dev/mcp-provider',
+    aiProvider: 'https://agent-automation-ai-provider.fly.dev/ai-provider',
+    agentProvider: 'https://agent-automation-agent-provider.fly.dev/agent-provider',
+  };
+}
+
+/**
+ * Get development URLs
+ */
+function getDevelopmentApiUrls() {
+  return {
+    mcpProvider: 'http://localhost:8083/mcp-provider',
+    aiProvider: 'http://localhost:8082/ai-provider',
+    agentProvider: 'http://localhost:8081/agent-provider',
+  };
+}
+
+/**
  * Main application configuration
  */
-export const config: AppConfig = {
-  env: (getEnvVar('NEXT_PUBLIC_ENV', 'development') as AppConfig['env']),
-  debug: getBoolEnvVar('NEXT_PUBLIC_DEBUG', true),
-  
-  api: {
-    mcpProvider: normalizeUrl(getEnvVar('NEXT_PUBLIC_MCP_PROVIDER_URL', 'http://localhost:8083/mcp-provider')),
-    aiProvider: normalizeUrl(getEnvVar('NEXT_PUBLIC_AI_PROVIDER_URL', 'http://localhost:8082/ai-provider')),
-    agentProvider: normalizeUrl(getEnvVar('NEXT_PUBLIC_AGENT_PROVIDER_URL', 'http://localhost:8081/agent-provider')),
-    timeout: getNumberEnvVar('NEXT_PUBLIC_API_TIMEOUT', 30000),
-  }
-};
+export const config: AppConfig = (() => {
+  const production = isProduction();
+  const apiUrls = production ? getProductionApiUrls() : getDevelopmentApiUrls();
+
+  // Force production URLs if we detect production environment
+  const mcpProvider = production
+    ? apiUrls.mcpProvider
+    : normalizeUrl(getEnvVar('NEXT_PUBLIC_MCP_PROVIDER_URL', apiUrls.mcpProvider));
+
+  const aiProvider = production
+    ? apiUrls.aiProvider
+    : normalizeUrl(getEnvVar('NEXT_PUBLIC_AI_PROVIDER_URL', apiUrls.aiProvider));
+
+  const agentProvider = production
+    ? apiUrls.agentProvider
+    : normalizeUrl(getEnvVar('NEXT_PUBLIC_AGENT_PROVIDER_URL', apiUrls.agentProvider));
+
+  return {
+    env: production ? 'production' : 'development',
+    debug: getBoolEnvVar('NEXT_PUBLIC_DEBUG', !production),
+
+    api: {
+      mcpProvider,
+      aiProvider,
+      agentProvider,
+      timeout: getNumberEnvVar('NEXT_PUBLIC_API_TIMEOUT', 30000),
+    }
+  };
+})();
 
 /**
  * Validate configuration on app startup
@@ -85,11 +137,20 @@ export function validateConfig(): void {
     }
   }
 
+  // SECURITY: Never allow localhost in production
+  if (config.env === 'production') {
+    const hasLocalhost = requiredUrls.some(url => url.includes('localhost'));
+    if (hasLocalhost) {
+      throw new Error('🚨 SECURITY ERROR: Localhost URLs detected in production environment!');
+    }
+  }
+
   if (config.debug) {
     console.log('🔧 Environment Configuration:', {
       env: config.env,
       debug: config.debug,
       api: config.api,
+      hostname: typeof window !== 'undefined' ? window.location.hostname : 'server',
     });
   }
 }
@@ -107,14 +168,14 @@ export const apiEndpoints = {
     actionAnalysis: `${config.api.mcpProvider}/action-analysis`,
     financeActions: `${config.api.mcpProvider}/api/finance-actions`,
   },
-  
+
   // AI Provider endpoints
   ai: {
     base: config.api.aiProvider,
     generate: `${config.api.aiProvider}/api/ai/generate`,
     models: `${config.api.aiProvider}/api/ai/models`,
   },
-  
+
   // Agent Provider endpoints
   agent: {
     base: config.api.agentProvider,
@@ -130,4 +191,4 @@ export const apiEndpoints = {
 // Initialize and validate configuration
 if (typeof window !== 'undefined') {
   validateConfig();
-} 
+}

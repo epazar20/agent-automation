@@ -64,9 +64,9 @@ services:
       - SERVER_PORT=8083
       - AI_PROVIDER_BASE_URL=http://ai-provider:8082
       # Supabase Remote Database Configuration
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://aws-0-eu-central-1.pooler.supabase.com:6543/postgres?user=postgres.srtihtbzckhristzucid&password=${DB_PASSWORD}&reWriteBatchedInserts=true
-      - SPRING_DATASOURCE_USERNAME=postgres.srtihtbzckhristzucid
-      - SPRING_DATASOURCE_PASSWORD=${DB_PASSWORD}
+      - SPRING_DATASOURCE_URL=${SPRING_DATASOURCE_URL}
+      - SPRING_DATASOURCE_USERNAME=${SPRING_DATASOURCE_USERNAME}
+      - SPRING_DATASOURCE_PASSWORD=${SPRING_DATASOURCE_PASSWORD}
       - DB_PASSWORD=${DB_PASSWORD}
     ports:
       - "8083:8083"
@@ -151,4 +151,4 @@ volumes:
   frontend-logs:
     name: agent-automation-frontend-logs
   nginx-logs:
-    name: agent-automation-nginx-logs 
+    name: agent-automation-nginx-logs

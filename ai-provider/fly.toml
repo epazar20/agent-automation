@@ -12,6 +12,8 @@ primary_region = "fra"
 [env]
   SERVER_PORT = "8080"
   SPRING_PROFILES_ACTIVE = "production"
+  # Note: Set secrets using: fly secrets set HUGGINGFACE_API_KEY=your_key_here
+  # HUGGINGFACE_API_KEY will be set as a secret
 
 [http_service]
   internal_port = 8080
