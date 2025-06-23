@@ -1,0 +1,22 @@
+# Simple single-stage build for Fly.io
+FROM maven:3.8-openjdk-17-slim
+
+WORKDIR /app
+
+# Copy all necessary files
+COPY pom.xml ./
+COPY src ./src
+COPY ../pom.xml ./parent-pom.xml
+
+# Replace parent pom reference
+RUN sed -i 's|<relativePath>../pom.xml</relativePath>|<relativePath>./parent-pom.xml</relativePath>|g' pom.xml
+
+# Build and run in single stage
+RUN mvn clean package -DskipTests
+
+# Install curl for health checks
+RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
+
+EXPOSE 8080
+
+CMD ["java", "-jar", "-Dspring.profiles.active=production", "target/ai-provider-0.0.1-SNAPSHOT.jar"] 

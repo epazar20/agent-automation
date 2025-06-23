@@ -68,11 +68,17 @@ build/
 .env.test.local
 .env.production.local
 
-# Application Secrets
+# Application Secrets (Git'e gitmeyen dosyalar)
 **/application-secrets.properties
 **/application-secrets.yml
 **/application-local.properties
 **/application-local.yml
+**/application-dev.properties
+**/application-dev.yml
+
+# Local Documentation and Tests (Git'e gitmiyor)
+docs/
+tests/
 
 # OS
 .DS_Store

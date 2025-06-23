@@ -1,54 +1,50 @@
-# Multi-stage build for Frontend
-FROM node:18-alpine AS deps
-RUN apk add --no-cache libc6-compat
-WORKDIR /app
-
-# Install dependencies based on the preferred package manager
-COPY package.json package-lock.json* ./
-RUN npm ci --only=production
-
-# Builder stage
+# Frontend - Production Optimized Dockerfile
 FROM node:18-alpine AS builder
+
 WORKDIR /app
-COPY --from=deps /app/node_modules ./node_modules
+
+# Copy package files for better layer caching
+COPY package*.json ./
+
+# Install all dependencies (including dev dependencies for build)
+RUN npm ci
+
+# Copy source code
 COPY . .
 
-# Set build environment variables
-ENV NODE_ENV=production
-ENV NEXT_TELEMETRY_DISABLED=1
-
+# Build the application
 RUN npm run build
 
-# Runner stage
-FROM node:18-alpine AS runner
+# Production runtime stage
+FROM node:18-alpine
+
 WORKDIR /app
 
-ENV NODE_ENV=production
-ENV NEXT_TELEMETRY_DISABLED=1
+# Create non-root user
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S nextjs -u 1001
 
-RUN addgroup --system --gid 1001 nodejs
-RUN adduser --system --uid 1001 nextjs
-
+# Copy built application from builder stage
 COPY --from=builder /app/public ./public
+COPY --from=builder /app/.next/standalone ./
+COPY --from=builder /app/.next/static ./.next/static
 
-# Set the correct permission for prerender cache
-RUN mkdir .next
-RUN chown nextjs:nodejs .next
+# Install curl for health checks
+RUN apk add --no-cache curl
 
-# Automatically leverage output traces to reduce image size
-# https://nextjs.org/docs/advanced-features/output-file-tracing
-COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
-COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+# Set ownership
+RUN chown -R nextjs:nodejs /app
 
 USER nextjs
 
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
+    CMD curl -f http://localhost:3000 || exit 1
+
 EXPOSE 3000
 
+ENV NODE_ENV=production
+ENV HOSTNAME=0.0.0.0
 ENV PORT=3000
-ENV HOSTNAME="0.0.0.0"
-
-# Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
-  CMD curl -f http://localhost:3000/api/health || exit 1
 
 CMD ["node", "server.js"] 

@@ -1,0 +1,47 @@
+repos:
+  - repo: https://github.com/Yelp/detect-secrets
+    rev: v1.4.0
+    hooks:
+      - id: detect-secrets
+        args: ['--baseline', '.secrets.baseline']
+        exclude: .*\.example$
+  
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.4.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-added-large-files
+      - id: check-merge-conflict
+      - id: check-json
+      - id: pretty-format-json
+        args: ['--autofix']
+      - id: check-case-conflict
+      - id: check-executables-have-shebangs
+      - id: check-shebang-scripts-are-executable
+
+  - repo: https://github.com/psf/black
+    rev: 23.3.0
+    hooks:
+      - id: black
+        language_version: python3
+        files: \.py$
+
+  - repo: local
+    hooks:
+      - id: no-hardcoded-secrets
+        name: No hardcoded secrets
+        entry: bash -c 'if grep -r --include="*.properties" --include="*.yml" --include="*.yaml" --include="*.json" -E "(password|secret|key|token|credential).*=.*[^_here|^your_|^example]" . --exclude-dir=.git --exclude-dir=target --exclude-dir=node_modules --exclude="*.example" --exclude="env.example"; then echo "❌ Hardcoded secrets detected! Use placeholder values ending with _here"; exit 1; fi'
+        language: system
+        files: \.(properties|yml|yaml|json)$
+        stages: [commit]
+
+  - repo: local
+    hooks:
+      - id: api-key-pattern-check
+        name: API Key Pattern Check
+        entry: bash -c 'if grep -r --include="*.properties" --include="*.yml" --include="*.yaml" --include="*.json" --include="*.js" --include="*.ts" -E "(hf_[a-zA-Z0-9]{36}|sk-[a-zA-Z0-9]{48}|[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})" . --exclude-dir=.git --exclude-dir=target --exclude-dir=node_modules --exclude="*.example"; then echo "❌ Real API key patterns detected!"; exit 1; fi'
+        language: system
+        files: \.(properties|yml|yaml|json|js|ts)$
+        stages: [commit] 

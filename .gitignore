@@ -14,6 +14,7 @@
 **/application-local.properties
 **/application-local.yml
 **/application-local.yaml
+**/application-dev.properties
 
 # ====================
 # DOCKER & PRODUCTION
@@ -33,6 +34,7 @@ nginx/ssl/
 
 # Database backups
 backups/
+backup/
 *.sql
 *.dump
 *.backup
@@ -95,6 +97,31 @@ hs_err_pid*
 bin/
 build/
 .mvn/
+
+# Maven wrapper (optional - some teams prefer to commit this)
+.mvn/wrapper/maven-wrapper.jar
+.mvn/wrapper/maven-wrapper.properties
+
+# ====================
+# BACKUP & TEMPORARY FILES
+# ====================
+# Backup files
+*.bak
+*.backup
+*.tmp
+*.temp
+*.orig
+*.swp
+*.swo
+*~
+
+# Fixed/temporary files  
+*.fixed
+*.old
+*.new
+pom.xml.fixed
+pom.xml.backup
+pom.xml.old
 
 # ====================
 # PYTHON
@@ -198,25 +225,43 @@ pids
 .yarn-integrity
 .parcel-cache
 .nuxt
-.out
-.storybook-out
 
 # ====================
-# TEMPORARY FILES
+# SECURITY & SENSITIVE DATA
 # ====================
-tmp/
-temp/
-*.tmp
-*.temp
+# API Keys patterns
+**/keys/
+**/secrets/
+*.key
+*.secret
+*.token
+*.credential
+
+# Environment specific files
+.env.*
+!.env.example
+
+# Database connection files
+*.db
+*.sqlite
+*.sqlite3
 
 # ====================
-# SPECIFIC FILES TO TRACK
+# PROJECT SPECIFIC
 # ====================
-# These files should be tracked in git:
-# - Dockerfile (all modules)
-# - docker-compose.yml
-# - nginx/nginx.conf
-# - application-docker.properties
-# - scripts/*.sh
-# - DEPLOYMENT.md
-# - .env.example (if created) 
+# Target directories for each service
+ai-provider/target/
+mcp-provider/target/
+agent-provider/target/
+frontend-provider/target/
+
+# Node modules for each service
+ai-provider/node_modules/
+mcp-provider/node_modules/
+agent-provider/node_modules/
+frontend/node_modules/
+
+# Build outputs
+**/dist/
+**/build/
+**/out/ 

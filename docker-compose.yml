@@ -1,28 +1,6 @@
 version: '3.8'
 
 services:
-  # Database
-  postgres:
-    image: postgres:15-alpine
-    container_name: agent-automation-db
-    environment:
-      POSTGRES_DB: mcp_db
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres123}
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-      - ./init-scripts:/docker-entrypoint-initdb.d
-    ports:
-      - "5432:5432"
-    networks:
-      - agent-network
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    restart: unless-stopped
-
   # AI Provider Service
   ai-provider:
     build:
@@ -45,8 +23,6 @@ services:
       timeout: 10s
       retries: 3
     restart: unless-stopped
-    depends_on:
-      - postgres
 
   # Agent Provider Service
   agent-provider:
@@ -77,7 +53,7 @@ services:
       ai-provider:
         condition: service_healthy
 
-  # MCP Provider Service
+  # MCP Provider Service (Supabase Remote Database)
   mcp-provider:
     build:
       context: ./mcp-provider
@@ -87,10 +63,11 @@ services:
       - SPRING_PROFILES_ACTIVE=docker
       - SERVER_PORT=8083
       - AI_PROVIDER_BASE_URL=http://ai-provider:8082
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/mcp_db
-      - SPRING_DATASOURCE_USERNAME=postgres
-      - SPRING_DATASOURCE_PASSWORD=${DB_PASSWORD:-postgres123}
-      - DB_PASSWORD=${DB_PASSWORD:-postgres123}
+      # Supabase Remote Database Configuration
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://aws-0-eu-central-1.pooler.supabase.com:6543/postgres?user=postgres.srtihtbzckhristzucid&password=${DB_PASSWORD}&reWriteBatchedInserts=true
+      - SPRING_DATASOURCE_USERNAME=postgres.srtihtbzckhristzucid
+      - SPRING_DATASOURCE_PASSWORD=${DB_PASSWORD}
+      - DB_PASSWORD=${DB_PASSWORD}
     ports:
       - "8083:8083"
     networks:
@@ -104,8 +81,6 @@ services:
       retries: 3
     restart: unless-stopped
     depends_on:
-      postgres:
-        condition: service_healthy
       ai-provider:
         condition: service_healthy
 
@@ -148,8 +123,8 @@ services:
       - "80:80"
       - "443:443"
     volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./nginx/ssl:/etc/nginx/ssl:ro
+      - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./docker/nginx/ssl:/etc/nginx/ssl:ro
       - nginx-logs:/var/log/nginx
     networks:
       - agent-network
@@ -166,8 +141,7 @@ networks:
     name: agent-automation-network
 
 volumes:
-  postgres_data:
-    name: agent-automation-postgres-data
+  # Removed postgres_data volume as we're using Supabase
   ai-logs:
     name: agent-automation-ai-logs
   agent-logs:

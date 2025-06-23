@@ -50,6 +50,9 @@ target/
 !.mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
 !**/src/test/**/target/
+.mvn/
+mvnw
+mvnw.cmd
 
 # Gradle
 .gradle
@@ -65,11 +68,9 @@ build/
 .env.test.local
 .env.production.local
 
-# Application Secrets
-**/application-secrets.properties
-**/application-secrets.yml
-**/application-local.properties
-**/application-local.yml
+# Local Documentation and Tests (Git'e gitmiyor)
+docs/
+tests/
 
 # OS
 .DS_Store
@@ -84,6 +85,17 @@ Desktop.ini
 # Spring Boot
 *.pid
 HELP.md
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Application Secrets
+**/application-secrets.properties
+**/application-secrets.yml
+**/application-local.properties
+**/application-local.yml
 
 # Temporary files
 tmp/
