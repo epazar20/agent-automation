@@ -11,6 +11,9 @@ primary_region = "fra"
   # Supabase Remote Database - No Fly.io PostgreSQL needed
   SPRING_DATASOURCE_URL = "jdbc:postgresql://aws-0-eu-central-1.pooler.supabase.com:6543/postgres?user=postgres.srtihtbzckhristzucid&reWriteBatchedInserts=true"
   SPRING_DATASOURCE_USERNAME = "postgres.srtihtbzckhristzucid"
+  # Mail Configuration - Set as secrets via flyctl
+  MAIL_HOST = "smtp.gmail.com"
+  MAIL_PORT = "587"
 
 [http_service]
   internal_port = 8080
@@ -33,4 +36,4 @@ primary_region = "fra"
   memory_mb = 1024
 
 [[vm.restart_policy]]
-  policy = "always" 
+  policy = "always"

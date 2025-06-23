@@ -68,6 +68,11 @@ services:
       - SPRING_DATASOURCE_USERNAME=${SPRING_DATASOURCE_USERNAME}
       - SPRING_DATASOURCE_PASSWORD=${SPRING_DATASOURCE_PASSWORD}
       - DB_PASSWORD=${DB_PASSWORD}
+      # Mail Configuration (from .env file)
+      - MAIL_HOST=${MAIL_HOST}
+      - MAIL_PORT=${MAIL_PORT}
+      - MAIL_USERNAME=${MAIL_USERNAME}
+      - MAIL_PASSWORD=${MAIL_PASSWORD}
     ports:
       - "8083:8083"
     networks:
@@ -91,10 +96,10 @@ services:
       dockerfile: Dockerfile
     container_name: frontend
     environment:
-      - NODE_ENV=production
-      - NEXT_PUBLIC_AI_PROVIDER_URL=http://localhost:8082
-      - NEXT_PUBLIC_AGENT_PROVIDER_URL=http://localhost:8081
-      - NEXT_PUBLIC_MCP_PROVIDER_URL=http://localhost:8083
+      - NODE_ENV=development
+      - NEXT_PUBLIC_AI_PROVIDER_URL=http://localhost:8082/ai-provider
+      - NEXT_PUBLIC_AGENT_PROVIDER_URL=http://localhost:8081/agent-provider
+      - NEXT_PUBLIC_MCP_PROVIDER_URL=http://localhost:8083/mcp-provider
     ports:
       - "3000:3000"
     networks:
@@ -108,12 +113,9 @@ services:
       retries: 3
     restart: unless-stopped
     depends_on:
-      ai-provider:
-        condition: service_healthy
-      agent-provider:
-        condition: service_healthy
-      mcp-provider:
-        condition: service_healthy
+      - ai-provider
+      - agent-provider
+      - mcp-provider
 
   # Nginx Reverse Proxy
   nginx:
