@@ -8,7 +8,7 @@
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-blue.svg)](https://www.postgresql.org/)
 [![React](https://img.shields.io/badge/React-19.1.0-blue.svg)](https://reactjs.org/)
 
-Modern AI tabanlı iş süreçlerini otomatikleştiren **görsel flow editörü** ve **mikroservis tabanlı agent sistemi**. 
+Modern AI tabanlı iş süreçlerini otomatikleştiren **görsel flow editörü** ve **mikroservis tabanlı agent sistemi**.
 
 Drag & drop arayüzü ile karmaşık AI iş akışları oluşturun, finansal analiz yapın, otomatik raporlama ve e-posta gönderimi gerçekleştirin.
 
@@ -61,14 +61,14 @@ Bu proje, **mikroservis mimarisi** ile tasarlanmış kapsamlı bir AI agent auto
 AI Agent Automation Platform
 ├── 🎨 Frontend (Next.js + TypeScript)    → Port: 3000
 │   ├── React Flow Editor
-│   │   ├── Redux State Management  
+│   │   ├── Redux State Management
 │   │   ├── Tailwind CSS + Radix UI
 │   │   └── Unified Content Viewer
 │   ├── 🤖 AI Provider (Spring Boot)          → Port: 8082
 │   │   ├── Multi-Model AI Integration
 │   │   ├── HuggingFace, OpenAI, Gemini
 │   │   └── Model Response Processing
-│   ├── 🔧 Agent Provider (Spring Boot)       → Port: 8081  
+│   ├── 🔧 Agent Provider (Spring Boot)       → Port: 8081
 │   │   ├── Web Scraping & Data Analysis
 │   │   ├── File Processing (Excel, PDF)
 │   │   ├── Chart Generation
@@ -135,9 +135,9 @@ graph LR
     A[AI Action Analysis] --> B[MCP: Generate Statement]
     B --> C[MCP: Overdue Payment]
     C --> D[MCP: Send Email]
-    
+
     A --> |Müşteri verisi analizi| B
-    B --> |PDF ekstre oluştur| C  
+    B --> |PDF ekstre oluştur| C
     C --> |Gecikmiş ödeme tespit| D
     D --> |Uyarı e-postası gönder| E[Tamamlandı]
 ```
@@ -170,7 +170,7 @@ graph LR
     B --> C[Research Agent]
     C --> D[Text Generator]
     D --> E[Translator]
-    
+
     A --> |Arama sonuçları| B
     B --> |Detaylı içerik| C
     C --> |Analiz raporu| D
@@ -193,7 +193,7 @@ graph LR
 graph LR
     A[Data Analyst] --> B[Image Generator]
     B --> C[Text Generator]
-    
+
     A --> |Excel analizi + grafik| B
     B --> |Görsel rapor| C
     C --> |Analiz özeti| D[Rapor]
@@ -213,7 +213,7 @@ graph LR
     A[YouTube Summarizer] --> B[Text Generator]
     B --> C[Image Generator]
     C --> D[Translator]
-    
+
     A --> |Video özeti| B
     B --> |Blog yazısı| C
     C --> |Kapak görseli| D
@@ -675,6 +675,251 @@ PUT /mcp-provider/api/workflows/{id}
 DELETE /mcp-provider/api/workflows/{id}
 ```
 
+### 📊 GENERATE_STATEMENT - Ekstre Üretimi
+
+**Action Type**: `GENERATE_STATEMENT`
+**Endpoint**: `POST /mcp-provider/api/finance-actions/statement`
+**Açıklama**: Hesap ekstresi, işlem dökümü ve bakiye raporu oluşturur. PDF formatında profesyonel ekstre üretir ve e-posta eki olarak kullanılabilir.
+
+#### JSON Schema
+```json
+{
+  "actionType": "GENERATE_STATEMENT",
+  "customerId": "?",
+  "startDate": "?",
+  "endDate": "?",
+  "direction": "in|out",
+  "minAmount": "?",
+  "maxAmount": "?",
+  "transactionType": "purchase|transfer|withdrawal|deposit|payment",
+  "category": "shopping|groceries|entertainment|transportation|utilities|healthcare|education|salary|rent|investment|personal",
+  "descriptionContains": "?",
+  "limit": "?",
+  "order": "asc|desc",
+  "currency": "TRY|USD|EUR|GBP"
+}
+```
+
+#### Parametre Detayları
+
+| Parametre | Tip | Zorunlu | Açıklama | Örnek Değerler |
+|-----------|-----|---------|----------|----------------|
+| `actionType` | String | ✅ | Action tipi (sabit değer) | `"GENERATE_STATEMENT"` |
+| `customerId` | String | ✅ | Müşteri ID'si | `"123"`, `"456"` |
+| `startDate` | DateTime | ❌ | Başlangıç tarihi | `"2024-01-01T00:00:00"` |
+| `endDate` | DateTime | ❌ | Bitiş tarihi | `"2024-12-31T23:59:59"` |
+| `direction` | String | ❌ | İşlem yönü | `"in"` (gelen), `"out"` (giden) |
+| `minAmount` | BigDecimal | ❌ | Minimum tutar | `100.00`, `1000.50` |
+| `maxAmount` | BigDecimal | ❌ | Maksimum tutar | `5000.00`, `10000.75` |
+| `transactionType` | String | ❌ | İşlem tipi | `"purchase"`, `"transfer"`, `"withdrawal"`, `"deposit"`, `"payment"` |
+| `category` | String | ❌ | İşlem kategorisi | `"shopping"`, `"groceries"`, `"entertainment"`, `"transportation"`, `"utilities"`, `"healthcare"`, `"education"`, `"salary"`, `"rent"`, `"investment"`, `"personal"` |
+| `descriptionContains` | String | ❌ | Açıklama içinde aranacak metin | `"market"`, `"ATM"`, `"transfer"` |
+| `limit` | Integer | ❌ | Maksimum kayıt sayısı | `50`, `100`, `200` |
+| `order` | String | ❌ | Sıralama yönü | `"asc"` (artan), `"desc"` (azalan) |
+| `currency` | String | ❌ | Para birimi | `"TRY"`, `"USD"`, `"EUR"`, `"GBP"` |
+
+#### Kullanım Örnekleri
+
+##### 1. Temel Ekstre Üretimi
+```http
+POST /mcp-provider/api/finance-actions/statement
+Content-Type: application/json
+
+{
+  "actionType": "GENERATE_STATEMENT",
+  "customerId": "123",
+  "startDate": "2024-01-01T00:00:00",
+  "endDate": "2024-12-31T23:59:59",
+  "limit": 100,
+  "order": "desc"
+}
+```
+
+**Response:**
+```json
+{
+  "customer": {
+    "id": 123,
+    "firstName": "Ahmet",
+    "lastName": "Yılmaz",
+    "email": "ahmet.yilmaz@email.com",
+    "phone": "+90 555 123 4567"
+  },
+  "transactions": [
+    {
+      "id": 1,
+      "transactionDate": "2024-12-15T14:30:00",
+      "description": "Market alışverişi",
+      "category": "groceries",
+      "direction": "out",
+      "amount": 250.50,
+      "currency": "TRY",
+      "counterpartyName": "Migros"
+    }
+  ],
+  "attachmentIds": [456],
+  "summary": {
+    "totalTransactions": 45,
+    "totalIncoming": 15000.00,
+    "totalOutgoing": 12500.00,
+    "netAmount": 2500.00
+  }
+}
+```
+
+##### 2. Kategori Bazlı Filtreleme
+```http
+POST /mcp-provider/api/finance-actions/statement
+Content-Type: application/json
+
+{
+  "actionType": "GENERATE_STATEMENT",
+  "customerId": "123",
+  "category": "shopping",
+  "startDate": "2024-12-01T00:00:00",
+  "endDate": "2024-12-31T23:59:59",
+  "direction": "out",
+  "order": "desc"
+}
+```
+
+##### 3. Tutar Aralığı Filtreleme
+```http
+POST /mcp-provider/api/finance-actions/statement
+Content-Type: application/json
+
+{
+  "actionType": "GENERATE_STATEMENT",
+  "customerId": "123",
+  "minAmount": 1000.00,
+  "maxAmount": 5000.00,
+  "transactionType": "transfer",
+  "currency": "TRY",
+  "limit": 50
+}
+```
+
+##### 4. Açıklama İçinde Arama
+```http
+POST /mcp-provider/api/finance-actions/statement
+Content-Type: application/json
+
+{
+  "actionType": "GENERATE_STATEMENT",
+  "customerId": "123",
+  "descriptionContains": "ATM",
+  "direction": "out",
+  "startDate": "2024-12-01T00:00:00",
+  "endDate": "2024-12-31T23:59:59"
+}
+```
+
+#### PDF Ekstre Özellikleri
+
+**Oluşturulan PDF'te şu bilgiler bulunur:**
+
+1. **Başlık Bölümü**
+   - "HESAP EKSTRESİ" başlığı
+   - Oluşturulma tarihi ve saati
+   - Müşteri bilgileri
+
+2. **İşlem Tablosu**
+   - Tarih ve saat
+   - İşlem açıklaması
+   - Kategori
+   - Yön (Gelen/Giden)
+   - Tutar (formatlanmış)
+   - Para birimi
+   - Karşı taraf adı
+
+3. **Özet Bilgiler**
+   - Toplam işlem sayısı
+   - Toplam gelen tutar
+   - Toplam giden tutar
+   - Net tutar
+
+4. **Footer**
+   - Otomatik oluşturulma bilgisi
+   - Tarih damgası
+
+#### AI Action Analysis Entegrasyonu
+
+**Frontend'de AI Action Analysis node'u ile kullanım:**
+
+```json
+{
+  "selectedActions": ["GENERATE_STATEMENT"],
+  "parameters": {
+    "customerId": "123",
+    "startDate": "2024-12-01T00:00:00",
+    "endDate": "2024-12-31T23:59:59",
+    "category": "shopping",
+    "direction": "out",
+    "limit": 100,
+    "order": "desc"
+  },
+  "dateRange": {
+    "startDate": "2024-12-01T00:00:00",
+    "endDate": "2024-12-31T23:59:59"
+  }
+}
+```
+
+#### Özel Kullanım Senaryoları
+
+##### 1. Aylık Alışveriş Raporu
+```json
+{
+  "actionType": "GENERATE_STATEMENT",
+  "customerId": "123",
+  "category": "shopping",
+  "startDate": "2024-12-01T00:00:00",
+  "endDate": "2024-12-31T23:59:59",
+  "direction": "out",
+  "order": "desc"
+}
+```
+
+##### 2. Yüksek Tutarlı İşlemler
+```json
+{
+  "actionType": "GENERATE_STATEMENT",
+  "customerId": "123",
+  "minAmount": 5000.00,
+  "transactionType": "transfer",
+  "order": "desc"
+}
+```
+
+##### 3. Belirli Para Birimi İşlemleri
+```json
+{
+  "actionType": "GENERATE_STATEMENT",
+  "customerId": "123",
+  "currency": "USD",
+  "startDate": "2024-01-01T00:00:00",
+  "endDate": "2024-12-31T23:59:59"
+}
+```
+
+#### Hata Durumları
+
+| HTTP Status | Hata Kodu | Açıklama | Çözüm |
+|-------------|-----------|----------|-------|
+| 400 | `INVALID_CUSTOMER_ID` | Geçersiz müşteri ID'si | Geçerli bir customerId kullanın |
+| 400 | `INVALID_DATE_RANGE` | Geçersiz tarih aralığı | startDate < endDate olmalı |
+| 400 | `INVALID_AMOUNT_RANGE` | Geçersiz tutar aralığı | minAmount < maxAmount olmalı |
+| 404 | `CUSTOMER_NOT_FOUND` | Müşteri bulunamadı | Mevcut bir müşteri ID'si kullanın |
+| 500 | `PDF_GENERATION_ERROR` | PDF oluşturma hatası | Tekrar deneyin |
+
+#### Performans Notları
+
+- **Maksimum Kayıt**: Varsayılan limit 100, maksimum 1000
+- **PDF Boyutu**: Ortalama 50-200 KB
+- **İşlem Süresi**: 2-5 saniye
+- **Cache**: Son 24 saat içindeki istekler cache'lenir
+- **Concurrent Requests**: Aynı anda 10 istek desteklenir
+
 ### AI Provider (Port: 8082)
 
 #### AI Model Execution
@@ -820,7 +1065,7 @@ services:
       POSTGRES_PASSWORD: ${DB_PASSWORD}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    
+
   mcp-provider:
     image: mcp-provider:latest
     ports:
@@ -830,24 +1075,24 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/mcp_db
     depends_on:
       - postgres
-      
+
   agent-provider:
     image: agent-provider:latest
     ports:
       - "8081:8081"
-      
+
   ai-provider:
     image: ai-provider:latest
     ports:
       - "8082:8082"
-      
+
   frontend:
     image: frontend:latest
     ports:
       - "3000:3000"
     environment:
       NEXT_PUBLIC_API_URL: http://mcp-provider:8083/mcp-provider
-      
+
 volumes:
   postgres_data:
 ```
