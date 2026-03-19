@@ -115,7 +115,7 @@ build/
 *.swo
 *~
 
-# Fixed/temporary files  
+# Fixed/temporary files
 *.fixed
 *.old
 *.new
@@ -264,4 +264,12 @@ frontend/node_modules/
 # Build outputs
 **/dist/
 **/build/
-**/out/ 
+**/out/
+Sunum_Ozeti.md
+agent-provider/src/main/resources/application-docker.properties
+agent-provider/src/main/resources/application-docker.properties
+agent-provider/src/main/resources/application-docker.properties
+agent-provider/src/main/resources/application-docker.properties
+mcp-provider/src/main/resources/application-production.properties
+mcp-provider/src/main/resources/application.properties
+ai-provider/src/main/resources/application.properties

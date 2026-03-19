@@ -1,0 +1,105 @@
+services:
+  # AI Provider Service
+  - type: web
+    name: ai-provider
+    env: docker
+    dockerContext: ./ai-provider
+    dockerfilePath: ./ai-provider/Dockerfile
+    envVars:
+      - key: SPRING_PROFILES_ACTIVE
+        value: docker
+      # Render uses the PORT environment variable to know which port to listen on internally.
+      - key: PORT
+        value: 8082
+      - key: SERVER_PORT
+        value: 8082
+      - key: HUGGINGFACE_API_KEY
+        sync: false
+
+  # Agent Provider Service
+  - type: web
+    name: agent-provider
+    env: docker
+    dockerContext: ./agent-provider
+    dockerfilePath: ./agent-provider/Dockerfile
+    envVars:
+      - key: SPRING_PROFILES_ACTIVE
+        value: docker
+      - key: PORT
+        value: 8081
+      - key: SERVER_PORT
+        value: 8081
+      # Internal backend URL mapping using Render's auto-generated external URL
+      - key: AI_PROVIDER_URL
+        fromService:
+          type: web
+          name: ai-provider
+          envVarKey: RENDER_EXTERNAL_URL
+      - key: RAPIDAPI_YOUTUBE_TRANSCRIPTOR_KEY
+        sync: false
+      - key: DEEPL_API_AUTH_KEY
+        sync: false
+      - key: STABILITY_AI_KEY
+        sync: false
+
+  # MCP Provider Service
+  - type: web
+    name: mcp-provider
+    env: docker
+    dockerContext: ./mcp-provider
+    dockerfilePath: ./mcp-provider/Dockerfile
+    envVars:
+      - key: SPRING_PROFILES_ACTIVE
+        value: docker
+      - key: PORT
+        value: 8083
+      - key: SERVER_PORT
+        value: 8083
+      - key: AI_PROVIDER_BASE_URL
+        fromService:
+          type: web
+          name: ai-provider
+          envVarKey: RENDER_EXTERNAL_URL
+      # Database and Email variables will be defined in the Render Dashboard securely
+      - key: SPRING_DATASOURCE_URL
+        sync: false
+      - key: SPRING_DATASOURCE_USERNAME
+        sync: false
+      - key: SPRING_DATASOURCE_PASSWORD
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+      - key: MAIL_HOST
+        sync: false
+      - key: MAIL_PORT
+        sync: false
+      - key: MAIL_USERNAME
+        sync: false
+      - key: MAIL_PASSWORD
+        sync: false
+
+  # Frontend Application
+  - type: web
+    name: agent-automation-frontend
+    env: docker
+    dockerContext: ./frontend
+    dockerfilePath: ./frontend/Dockerfile
+    envVars:
+      - key: NODE_ENV
+        value: production
+      # Next.js calls these APIs from the browser, so they need the public Render URLs
+      - key: NEXT_PUBLIC_AI_PROVIDER_URL
+        fromService:
+          type: web
+          name: ai-provider
+          envVarKey: RENDER_EXTERNAL_URL
+      - key: NEXT_PUBLIC_AGENT_PROVIDER_URL
+        fromService:
+          type: web
+          name: agent-provider
+          envVarKey: RENDER_EXTERNAL_URL
+      - key: NEXT_PUBLIC_MCP_PROVIDER_URL
+        fromService:
+          type: web
+          name: mcp-provider
+          envVarKey: RENDER_EXTERNAL_URL

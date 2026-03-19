@@ -10,9 +10,9 @@ public class CorsConfig implements WebMvcConfigurer {
     @Override
     public void addCorsMappings(CorsRegistry registry) {
         registry.addMapping("/**")
-                .allowedOrigins(
-                    "http://localhost:3000",  // Development
-                    "https://agent-automation-frontend.fly.dev"  // Production
+                .allowedOriginPatterns(
+                        "http://localhost:3000", // Development
+                        "https://*.onrender.com" // Production
                 )
                 .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
                 .allowedHeaders("*")
